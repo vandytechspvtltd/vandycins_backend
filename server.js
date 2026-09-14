@@ -62,10 +62,13 @@ try {
 // ====================================================
 // OTP CONFIGURATION & STORAGE
 // ====================================================
+// ====================================================
+// OTP CONFIGURATION & STORAGE
+// ====================================================
 
 const OTP_LENGTH = 4;
-const OTP_EXPIRY_MS = 5 * 60 * 1000;
-const OTP_COOLDOWN_MS = 45 * 1000;
+const OTP_EXPIRY_MS = 5 * 60 * 1000;   // 5 minutes
+const OTP_COOLDOWN_MS = 45 * 1000;     // 45 seconds
 const OTP_MAX_ATTEMPTS = 5;
 
 const otpStore = new Map();
@@ -116,18 +119,23 @@ function findUserByPhoneAndRole(phone, role) {
     );
 }
 
+
+// ====================================================
+// OTP DELIVERY
+// ====================================================
+
 async function sendOtpSms({
     phone,
     otp,
     role
 }) {
-    const provider =
-        String(
-            process.env.OTP_PROVIDER || 'console'
-        )
-            .trim()
-            .toLowerCase();
+    const provider = String(
+        process.env.OTP_PROVIDER || 'console'
+    )
+        .trim()
+        .toLowerCase();
 
+    // DEVELOPMENT / TESTING
     if (provider === 'console') {
 
         console.log(
@@ -143,8 +151,12 @@ async function sendOtpSms({
         };
     }
 
+    // TODO:
+    // Connect MSG91 / Twilio / Airtel IQ / other SMS provider here.
+
     throw new Error(
-        'OTP SMS provider is not configured.'
+        `Unsupported OTP_PROVIDER="${provider}". ` +
+        `Configure a real SMS provider or use OTP_PROVIDER=console for testing.`
     );
 }
 const app = express();
@@ -738,72 +750,52 @@ app.get('/health', (req, res) => {
 // AUTH — SEND OTP
 // ====================================================
 
-// ====================================================
-// AUTH — SEND OTP
-// ====================================================
-
 app.post(
     '/v1/auth/send-otp',
     async (req, res) => {
 
         try {
 
-            const rawPhone =
-                String(
-                    req.body?.phone || ''
-                ).trim();
+            const rawPhone = String(
+                req.body?.phone || ''
+            ).trim();
 
-            const role =
-                String(
-                    req.body?.role || ''
-                )
-                    .trim()
-                    .toUpperCase();
+            const role = String(
+                req.body?.role || ''
+            )
+                .trim()
+                .toUpperCase();
 
-            const phone =
-                normalizeIndianPhone(
-                    rawPhone
-                );
+            const phone = normalizeIndianPhone(
+                rawPhone
+            );
 
-            // ------------------------------------------------
+
             // PHONE VALIDATION
-            // ------------------------------------------------
-
             if (!phone) {
 
                 return res.status(400).json({
                     success: false,
-                    message:
-                        'Valid mobile number is required.'
+                    message: 'Valid mobile number is required.'
                 });
             }
 
-            // ------------------------------------------------
-            // ROLE VALIDATION
-            // ------------------------------------------------
 
-            if (
-                !['DOCTOR', 'PATIENT']
-                    .includes(role)
-            ) {
+            // ROLE VALIDATION
+            if (!['DOCTOR', 'PATIENT'].includes(role)) {
 
                 return res.status(400).json({
                     success: false,
-                    message:
-                        'Role must be DOCTOR or PATIENT.'
+                    message: 'Role must be DOCTOR or PATIENT.'
                 });
             }
 
-            // ------------------------------------------------
-            // USER MUST ALREADY EXIST
-            // NO SIGNUP
-            // ------------------------------------------------
 
-            const user =
-                findUserByPhoneAndRole(
-                    phone,
-                    role
-                );
+            // USER MUST EXIST
+            const user = findUserByPhoneAndRole(
+                phone,
+                role
+            );
 
             if (!user) {
 
@@ -814,62 +806,51 @@ app.post(
                 });
             }
 
-            // ------------------------------------------------
-            // RESEND COOLDOWN
-            // ------------------------------------------------
 
-            const key =
-                `${phone}:${role}`;
+            // OTP KEY
+            const key = `${phone}:${role}`;
 
-            const existing =
-                otpStore.get(key);
+            const existing = otpStore.get(key);
 
+
+            // COOLDOWN
             if (
                 existing &&
-                Date.now() -
-                existing.lastSentAt <
-                OTP_COOLDOWN_MS
+                Date.now() - existing.lastSentAt <
+                    OTP_COOLDOWN_MS
             ) {
 
-                const remaining =
-                    Math.ceil(
+                const remaining = Math.ceil(
+                    (
+                        OTP_COOLDOWN_MS -
                         (
-                            OTP_COOLDOWN_MS -
-                            (
-                                Date.now() -
-                                existing.lastSentAt
-                            )
-                        ) / 1000
-                    );
+                            Date.now() -
+                            existing.lastSentAt
+                        )
+                    ) / 1000
+                );
 
                 return res.status(429).json({
                     success: false,
                     message:
                         'Please wait before requesting another OTP.',
-                    cooldown_seconds:
-                        remaining
+                    cooldown_seconds: remaining
                 });
             }
 
-            // ------------------------------------------------
-            // GENERATE 4 DIGIT OTP
-            // ------------------------------------------------
 
-            const otp =
-                generateOtp();
+            // GENERATE OTP
+            const otp = generateOtp();
 
-            const otpHash =
-                hashOtp(otp);
+            const otpHash = hashOtp(otp);
 
             const requestId =
                 `req_${Date.now()}_${crypto
                     .randomBytes(6)
                     .toString('hex')}`;
 
-            // ------------------------------------------------
-            // STORE OTP
-            // ------------------------------------------------
 
+            // STORE OTP
             otpStore.set(
                 key,
                 {
@@ -880,22 +861,32 @@ app.post(
                     requestId,
                     createdAt: Date.now(),
                     expiresAt:
-                        Date.now() +
-                        OTP_EXPIRY_MS,
+                        Date.now() + OTP_EXPIRY_MS,
                     lastSentAt: Date.now(),
                     attempts: 0
                 }
             );
 
-            // ------------------------------------------------
-            // SEND OTP
-            // ------------------------------------------------
 
-            await sendOtpSms({
-                phone,
-                otp,
-                role
-            });
+            // SEND OTP
+            try {
+
+                await sendOtpSms({
+                    phone,
+                    otp,
+                    role
+                });
+
+            } catch (smsError) {
+
+                // Delivery failed:
+                // do not leave a usable OTP in memory.
+
+                otpStore.delete(key);
+
+                throw smsError;
+            }
+
 
             console.log(
                 `[AUTH] OTP generated ` +
@@ -904,17 +895,22 @@ app.post(
                 `request=${requestId}`
             );
 
-            // ------------------------------------------------
-            // NEVER RETURN OTP TO ANDROID
-            // ------------------------------------------------
 
+            // NEVER RETURN OTP TO CLIENT
             return res.status(200).json({
+
                 success: true,
+
                 message:
                     'OTP sent successfully.',
+
                 request_id:
                     requestId,
-                cooldown_seconds: 45
+
+                cooldown_seconds:
+                    Math.floor(
+                        OTP_COOLDOWN_MS / 1000
+                    )
             });
 
         } catch (error) {
@@ -925,7 +921,9 @@ app.post(
             );
 
             return res.status(500).json({
+
                 success: false,
+
                 message:
                     error.message ||
                     'Unable to send OTP.'
@@ -937,9 +935,6 @@ app.post(
 // AUTH — VERIFY OTP
 // ====================================================
 
-// ====================================================
-// AUTH — VERIFY OTP
-// ====================================================
 
 app.post(
     '/v1/auth/verify-otp',
@@ -947,32 +942,26 @@ app.post(
 
         try {
 
-            const rawPhone =
-                String(
-                    req.body?.phone || ''
-                ).trim();
+            const rawPhone = String(
+                req.body?.phone || ''
+            ).trim();
 
-            const otp =
-                String(
-                    req.body?.otp || ''
-                ).trim();
+            const otp = String(
+                req.body?.otp || ''
+            ).trim();
 
-            const role =
-                String(
-                    req.body?.role || ''
-                )
-                    .trim()
-                    .toUpperCase();
+            const role = String(
+                req.body?.role || ''
+            )
+                .trim()
+                .toUpperCase();
 
-            const phone =
-                normalizeIndianPhone(
-                    rawPhone
-                );
+            const phone = normalizeIndianPhone(
+                rawPhone
+            );
 
-            // ------------------------------------------------
+
             // PHONE
-            // ------------------------------------------------
-
             if (!phone) {
 
                 return res.status(400).json({
@@ -982,14 +971,9 @@ app.post(
                 });
             }
 
-            // ------------------------------------------------
-            // ROLE
-            // ------------------------------------------------
 
-            if (
-                !['DOCTOR', 'PATIENT']
-                    .includes(role)
-            ) {
+            // ROLE
+            if (!['DOCTOR', 'PATIENT'].includes(role)) {
 
                 return res.status(400).json({
                     success: false,
@@ -998,10 +982,8 @@ app.post(
                 });
             }
 
-            // ------------------------------------------------
-            // EXACTLY 4 DIGITS
-            // ------------------------------------------------
 
+            // EXACTLY 4 DIGITS
             if (!/^\d{4}$/.test(otp)) {
 
                 return res.status(400).json({
@@ -1011,10 +993,8 @@ app.post(
                 });
             }
 
-            // ------------------------------------------------
-            // FIND USER
-            // ------------------------------------------------
 
+            // FIND USER
             const user =
                 findUserByPhoneAndRole(
                     phone,
@@ -1030,16 +1010,15 @@ app.post(
                 });
             }
 
-            const key =
-                `${phone}:${role}`;
+
+            // OTP KEY
+            const key = `${phone}:${role}`;
 
             const storedOtp =
                 otpStore.get(key);
 
-            // ------------------------------------------------
-            // OTP DOES NOT EXIST
-            // ------------------------------------------------
 
+            // OTP NOT FOUND
             if (!storedOtp) {
 
                 return res.status(401).json({
@@ -1049,13 +1028,10 @@ app.post(
                 });
             }
 
-            // ------------------------------------------------
-            // USER BINDING
-            // ------------------------------------------------
 
+            // USER BINDING
             if (
-                storedOtp.userId !==
-                user.id
+                storedOtp.userId !== user.id
             ) {
 
                 otpStore.delete(key);
@@ -1067,10 +1043,8 @@ app.post(
                 });
             }
 
-            // ------------------------------------------------
-            // EXPIRY
-            // ------------------------------------------------
 
+            // EXPIRY
             if (
                 Date.now() >
                 storedOtp.expiresAt
@@ -1085,10 +1059,8 @@ app.post(
                 });
             }
 
-            // ------------------------------------------------
-            // ATTEMPT LIMIT
-            // ------------------------------------------------
 
+            // ATTEMPT LIMIT
             if (
                 storedOtp.attempts >=
                 OTP_MAX_ATTEMPTS
@@ -1103,32 +1075,88 @@ app.post(
                 });
             }
 
-            // ------------------------------------------------
-            // HASH PROVIDED OTP
-            // ------------------------------------------------
+// ====================================================
+// DEVELOPMENT OTP BYPASS
+// ====================================================
 
+const DEV_OTP_BYPASS =
+    String(process.env.DEV_OTP_BYPASS || 'false')
+        .trim()
+        .toLowerCase() === 'true';
+
+if (DEV_OTP_BYPASS) {
+
+    console.log(
+        `[AUTH] DEV OTP BYPASS ` +
+        `user=${user.id} ` +
+        `role=${user.role}`
+    );
+
+    // Consume OTP so it remains single-use.
+    otpStore.delete(key);
+
+    const accessToken =
+        createAccessToken(user);
+
+    const refreshToken =
+        `refresh_${crypto
+            .randomBytes(32)
+            .toString('hex')}`;
+
+    return res.status(200).json({
+
+        success: true,
+
+        access_token:
+            accessToken,
+
+        refresh_token:
+            refreshToken,
+
+        user_id:
+            user.id,
+
+        name:
+            user.name,
+
+        phone:
+            user.phone,
+
+        role:
+            user.role
+    });
+}
+            // HASH PROVIDED OTP
             const providedHash =
                 hashOtp(otp);
 
             const storedHash =
                 storedOtp.otpHash;
 
-            const hashesMatch =
-                crypto.timingSafeEqual(
-                    Buffer.from(
-                        providedHash,
-                        'hex'
-                    ),
-                    Buffer.from(
-                        storedHash,
-                        'hex'
-                    )
+
+            const providedBuffer =
+                Buffer.from(
+                    providedHash,
+                    'hex'
                 );
 
-            // ------------------------------------------------
-            // WRONG OTP
-            // ------------------------------------------------
+            const storedBuffer =
+                Buffer.from(
+                    storedHash || '',
+                    'hex'
+                );
 
+
+            const hashesMatch =
+                providedBuffer.length ===
+                    storedBuffer.length &&
+                crypto.timingSafeEqual(
+                    providedBuffer,
+                    storedBuffer
+                );
+
+
+            // WRONG OTP
             if (!hashesMatch) {
 
                 storedOtp.attempts += 1;
@@ -1136,6 +1164,7 @@ app.post(
                 const remaining =
                     OTP_MAX_ATTEMPTS -
                     storedOtp.attempts;
+
 
                 if (
                     storedOtp.attempts >=
@@ -1151,34 +1180,39 @@ app.post(
                     });
                 }
 
+
                 return res.status(401).json({
+
                     success: false,
+
                     message:
                         'Invalid OTP.',
+
                     remaining_attempts:
                         remaining
                 });
             }
 
-            // ------------------------------------------------
-            // OTP SUCCESS
-            // ------------------------------------------------
 
+            // ====================================================
+            // OTP SUCCESS
+            // ====================================================
+
+            // OTP is single-use.
             otpStore.delete(key);
 
-            // ------------------------------------------------
-            // CREATE ACCESS TOKEN
-            // ------------------------------------------------
 
+            // ACCESS TOKEN
             const accessToken =
-                createAccessToken(
-                    user
-                );
+                createAccessToken(user);
 
+
+            // REFRESH TOKEN
             const refreshToken =
                 `refresh_${crypto
                     .randomBytes(32)
                     .toString('hex')}`;
+
 
             console.log(
                 `[AUTH] LOGIN SUCCESS ` +
@@ -1186,6 +1220,7 @@ app.post(
                 `role=${user.role} ` +
                 `phone=${phone}`
             );
+
 
             return res.status(200).json({
 
@@ -1218,7 +1253,9 @@ app.post(
             );
 
             return res.status(500).json({
+
                 success: false,
+
                 message:
                     'Unable to verify OTP.'
             });
