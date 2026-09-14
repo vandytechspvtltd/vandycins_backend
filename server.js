@@ -66,10 +66,21 @@ try {
 // OTP CONFIGURATION & STORAGE
 // ====================================================
 
+// ====================================================
+// OTP CONFIGURATION & STORAGE
+// ====================================================
+
 const OTP_LENGTH = 4;
 const OTP_EXPIRY_MS = 5 * 60 * 1000;   // 5 minutes
 const OTP_COOLDOWN_MS = 45 * 1000;     // 45 seconds
 const OTP_MAX_ATTEMPTS = 5;
+
+// DEVELOPMENT / TESTING ONLY
+// Set DEV_OTP_BYPASS=true in .env
+const DEV_OTP_BYPASS =
+    String(process.env.DEV_OTP_BYPASS || 'false')
+        .trim()
+        .toLowerCase() === 'true';
 
 const otpStore = new Map();
 
@@ -1007,11 +1018,9 @@ app.post(
                 });
             }
 
-
-         let user = findUserByPhoneAndRole(phone, role);
+let user = findUserByPhoneAndRole(phone, role);
 
 if (!user && DEV_OTP_BYPASS) {
-
     const userId =
         `${role === 'DOCTOR' ? 'doc' : 'pat'}_${phone.replace(/\D/g, '')}`;
 
@@ -1027,15 +1036,6 @@ if (!user && DEV_OTP_BYPASS) {
     console.log(
         `[AUTH] DEV USER CREATED DURING VERIFY phone=${phone} role=${role} id=${userId}`
     );
-}
-
-if (!user) {
-
-    return res.status(401).json({
-        success: false,
-        message:
-            'Mobile number is not registered for this role.'
-    });
 }
 
             // OTP KEY
@@ -1102,14 +1102,6 @@ if (!user) {
                 });
             }
 
-// ====================================================
-// DEVELOPMENT OTP BYPASS
-// ====================================================
-
-const DEV_OTP_BYPASS =
-    String(process.env.DEV_OTP_BYPASS || 'false')
-        .trim()
-        .toLowerCase() === 'true';
 
 if (DEV_OTP_BYPASS) {
 
