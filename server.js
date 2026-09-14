@@ -1284,6 +1284,10 @@ app.post(
 
         try {
 
+            // ====================================================
+            // READ REQUEST
+            // ====================================================
+
             const rawPhone = String(
                 req.body?.phone || ''
             ).trim();
@@ -1303,7 +1307,10 @@ app.post(
             );
 
 
-            // PHONE
+            // ====================================================
+            // PHONE VALIDATION
+            // ====================================================
+
             if (!phone) {
 
                 return res.status(400).json({
@@ -1311,21 +1318,31 @@ app.post(
                     message:
                         'Valid mobile number is required.'
                 });
+
             }
 
 
-            // ROLE
-            if (!['DOCTOR', 'PATIENT'].includes(role)) {
+            // ====================================================
+            // ROLE VALIDATION
+            // ====================================================
+
+            if (
+                !['DOCTOR', 'PATIENT'].includes(role)
+            ) {
 
                 return res.status(400).json({
                     success: false,
                     message:
                         'Role must be DOCTOR or PATIENT.'
                 });
+
             }
 
 
-            // EXACTLY 4 DIGITS
+            // ====================================================
+            // OTP VALIDATION
+            // ====================================================
+
             if (!/^\d{4}$/.test(otp)) {
 
                 return res.status(400).json({
@@ -1333,126 +1350,55 @@ app.post(
                     message:
                         'OTP must be exactly 4 digits.'
                 });
+
             }
 
 
-let user =
-    findUserByPhoneAndRole(
-        phone,
-        role
-    );
-if (DEV_OTP_BYPASS) {
+            // ====================================================
+            // FIND USER
+            // ====================================================
 
-    console.log(
-        `[AUTH] DEV OTP BYPASS ` +
-        `user=${user.id} ` +
-        `role=${user.role}`
-    );
+            const user =
+                findUserByPhoneAndRole(
+                    phone,
+                    role
+                );
 
-    // ------------------------------------------------
-    // Consume OTP
-    // ------------------------------------------------
 
-    otpStore.delete(key);
+            // IMPORTANT:
+            // Never access user.id before checking user.
 
-    // ------------------------------------------------
-    // DOCTOR LOGIN
-    // ------------------------------------------------
-    //
-    // When doctor logs in:
-    //
-    // Doctor User
-    //      ↓
-    // Doctor Profile
-    //      ↓
-    // is_online = true
-    //      ↓
-    // liveDoctorId
-    //      ↓
-    // Patient Home sees this doctor
-    //
-    // ------------------------------------------------
+            if (!user) {
 
-    if (user.role === 'DOCTOR') {
+                return res.status(404).json({
+                    success: false,
+                    message:
+                        `No ${role.toLowerCase()} account is registered with this mobile number.`
+                });
 
-        const doctor =
-            ensureDoctorProfile(user);
+            }
 
-        if (!doctor) {
 
-            return res.status(500).json({
-                success: false,
-                message:
-                    'Unable to activate doctor profile.'
-            });
-        }
-
-        console.log(
-            `[DOCTOR] ACTIVE ` +
-            `doctorId=${doctor.id} ` +
-            `name=${doctor.name}`
-        );
-    }
-
-    // ------------------------------------------------
-    // ACCESS TOKEN
-    // ------------------------------------------------
-
-    const accessToken =
-        createAccessToken(user);
-
-    // ------------------------------------------------
-    // REFRESH TOKEN
-    // ------------------------------------------------
-
-    const refreshToken =
-        `refresh_${crypto
-            .randomBytes(32)
-            .toString('hex')}`;
-
-    return res.status(200).json({
-
-        success: true,
-
-        access_token:
-            accessToken,
-
-        refresh_token:
-            refreshToken,
-
-        user_id:
-            user.id,
-
-        name:
-            user.name ||
-            (
-                user.role === 'DOCTOR'
-                    ? (
-                        database.doctors.find(
-                            doctor =>
-                                doctor.id === user.id
-                        )?.name ||
-                        'Dr. Test Doctor'
-                    )
-                    : 'Patient'
-            ),
-
-        phone:
-            user.phone,
-
-        role:
-            user.role
-    });
-}
-
+            // ====================================================
             // OTP KEY
-            const key = `${phone}:${role}`;
+            // ====================================================
+
+            const key =
+                `${phone}:${role}`;
+
+
+            // ====================================================
+            // GET STORED OTP
+            // ====================================================
 
             const storedOtp =
                 otpStore.get(key);
 
 
+            // ====================================================
             // OTP NOT FOUND
+            // ====================================================
+
             if (!storedOtp) {
 
                 return res.status(401).json({
@@ -1460,48 +1406,33 @@ if (DEV_OTP_BYPASS) {
                     message:
                         'OTP not found or expired. Please request a new OTP.'
                 });
+
             }
 
 
+            // ====================================================
             // USER BINDING
+            // ====================================================
+
             if (
                 storedOtp.userId !== user.id
             ) {
 
                 otpStore.delete(key);
-// ------------------------------------------------
-// ACTIVATE DOCTOR AFTER SUCCESSFUL LOGIN
-// ------------------------------------------------
 
-if (user.role === 'DOCTOR') {
-
-    const doctor =
-        ensureDoctorProfile(user);
-
-    if (!doctor) {
-
-        return res.status(500).json({
-            success: false,
-            message:
-                'Unable to activate doctor profile.'
-        });
-    }
-
-    console.log(
-        `[DOCTOR] LOGIN ACTIVE ` +
-        `doctorId=${doctor.id} ` +
-        `name=${doctor.name}`
-    );
-}
                 return res.status(401).json({
                     success: false,
                     message:
                         'Invalid OTP request.'
                 });
+
             }
 
 
-            // EXPIRY
+            // ====================================================
+            // OTP EXPIRY
+            // ====================================================
+
             if (
                 Date.now() >
                 storedOtp.expiresAt
@@ -1514,10 +1445,14 @@ if (user.role === 'DOCTOR') {
                     message:
                         'OTP has expired. Please request a new OTP.'
                 });
+
             }
 
 
-            // ATTEMPT LIMIT
+            // ====================================================
+            // MAX ATTEMPTS
+            // ====================================================
+
             if (
                 storedOtp.attempts >=
                 OTP_MAX_ATTEMPTS
@@ -1530,52 +1465,123 @@ if (user.role === 'DOCTOR') {
                     message:
                         'Too many incorrect OTP attempts. Please request a new OTP.'
                 });
+
             }
 
 
-if (DEV_OTP_BYPASS) {
+            // ====================================================
+            // DEVELOPMENT OTP BYPASS
+            // ====================================================
+            //
+            // .env:
+            //
+            // DEV_OTP_BYPASS=true
+            //
+            // This bypasses OTP hash comparison.
+            // OTP must still have been requested first.
+            //
 
-    console.log(
-        `[AUTH] DEV OTP BYPASS ` +
-        `user=${user.id} ` +
-        `role=${user.role}`
-    );
+            if (DEV_OTP_BYPASS) {
 
-    // Consume OTP so it remains single-use.
-    otpStore.delete(key);
+                console.log(
+                    `[AUTH] DEV OTP BYPASS ` +
+                    `user=${user.id} ` +
+                    `role=${user.role}`
+                );
 
-    const accessToken =
-        createAccessToken(user);
 
-    const refreshToken =
-        `refresh_${crypto
-            .randomBytes(32)
-            .toString('hex')}`;
+                // OTP is single-use.
+                otpStore.delete(key);
 
-    return res.status(200).json({
 
-        success: true,
+                // ------------------------------------------------
+                // ACTIVATE DOCTOR AFTER SUCCESSFUL LOGIN
+                // ------------------------------------------------
 
-        access_token:
-            accessToken,
+                if (
+                    user.role === 'DOCTOR'
+                ) {
 
-        refresh_token:
-            refreshToken,
+                    const doctor =
+                        ensureDoctorProfile(user);
 
-        user_id:
-            user.id,
 
-        name:
-            user.name,
+                    if (!doctor) {
 
-        phone:
-            user.phone,
+                        return res.status(500).json({
+                            success: false,
+                            message:
+                                'Unable to activate doctor profile.'
+                        });
 
-        role:
-            user.role
-    });
-}
+                    }
+
+
+                    console.log(
+                        `[DOCTOR] LOGIN ACTIVE ` +
+                        `doctorId=${doctor.id} ` +
+                        `name=${doctor.name}`
+                    );
+
+                }
+
+
+                // ------------------------------------------------
+                // CREATE ACCESS TOKEN
+                // ------------------------------------------------
+
+                const accessToken =
+                    createAccessToken(user);
+
+
+                // ------------------------------------------------
+                // CREATE REFRESH TOKEN
+                // ------------------------------------------------
+
+                const refreshToken =
+                    `refresh_${crypto
+                        .randomBytes(32)
+                        .toString('hex')}`;
+
+
+                console.log(
+                    `[AUTH] LOGIN SUCCESS ` +
+                    `user=${user.id} ` +
+                    `role=${user.role} ` +
+                    `phone=${phone}`
+                );
+
+
+                return res.status(200).json({
+
+                    success: true,
+
+                    access_token:
+                        accessToken,
+
+                    refresh_token:
+                        refreshToken,
+
+                    user_id:
+                        user.id,
+
+                    name:
+                        user.name,
+
+                    phone:
+                        user.phone,
+
+                    role:
+                        user.role
+                });
+
+            }
+
+
+            // ====================================================
             // HASH PROVIDED OTP
+            // ====================================================
+
             const providedHash =
                 hashOtp(otp);
 
@@ -1605,10 +1611,14 @@ if (DEV_OTP_BYPASS) {
                 );
 
 
+            // ====================================================
             // WRONG OTP
+            // ====================================================
+
             if (!hashesMatch) {
 
                 storedOtp.attempts += 1;
+
 
                 const remaining =
                     OTP_MAX_ATTEMPTS -
@@ -1627,6 +1637,7 @@ if (DEV_OTP_BYPASS) {
                         message:
                             'Too many incorrect OTP attempts. Please request a new OTP.'
                     });
+
                 }
 
 
@@ -1640,6 +1651,7 @@ if (DEV_OTP_BYPASS) {
                     remaining_attempts:
                         remaining
                 });
+
             }
 
 
@@ -1651,17 +1663,59 @@ if (DEV_OTP_BYPASS) {
             otpStore.delete(key);
 
 
+            // ====================================================
+            // ACTIVATE DOCTOR AFTER SUCCESSFUL LOGIN
+            // ====================================================
+
+            if (
+                user.role === 'DOCTOR'
+            ) {
+
+                const doctor =
+                    ensureDoctorProfile(user);
+
+
+                if (!doctor) {
+
+                    return res.status(500).json({
+                        success: false,
+                        message:
+                            'Unable to activate doctor profile.'
+                    });
+
+                }
+
+
+                console.log(
+                    `[DOCTOR] LOGIN ACTIVE ` +
+                    `doctorId=${doctor.id} ` +
+                    `name=${doctor.name}`
+                );
+
+            }
+
+
+            // ====================================================
             // ACCESS TOKEN
+            // ====================================================
+
             const accessToken =
                 createAccessToken(user);
 
 
+            // ====================================================
             // REFRESH TOKEN
+            // ====================================================
+
             const refreshToken =
                 `refresh_${crypto
                     .randomBytes(32)
                     .toString('hex')}`;
 
+
+            // ====================================================
+            // LOGIN SUCCESS
+            // ====================================================
 
             console.log(
                 `[AUTH] LOGIN SUCCESS ` +
@@ -1694,6 +1748,7 @@ if (DEV_OTP_BYPASS) {
                     user.role
             });
 
+
         } catch (error) {
 
             console.error(
@@ -1701,14 +1756,18 @@ if (DEV_OTP_BYPASS) {
                 error
             );
 
+
             return res.status(500).json({
 
                 success: false,
 
                 message:
+                    error.message ||
                     'Unable to verify OTP.'
             });
+
         }
+
     }
 );
 
