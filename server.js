@@ -286,10 +286,17 @@ const database = {
         }
     ],
 
+    // ------------------------------------------------
+    // Currently active doctor for patient Home
+    // ------------------------------------------------
+
+    liveDoctorId: 'doc_101',
+
     liveQueue: {
         currentServingToken: 12,
         waitingCount: 2,
         userToken: 14,
+    patientId: 'pat_789',
         estimatedWaitMinutes: 6,
         isUserTurn: true,
 
@@ -327,13 +334,95 @@ const database = {
     orders: {}
 };
 
-
 // ====================================================
 // USERS
 // ====================================================
 
 database.users = {};
+// ====================================================
+// DOCTOR REGISTRATION / PRESENCE
+// ====================================================
 
+function ensureDoctorProfile(user) {
+
+    if (!user || user.role !== 'DOCTOR') {
+        return null;
+    }
+
+    let doctor =
+        database.doctors.find(
+            existingDoctor =>
+                existingDoctor.id === user.id
+        );
+
+    // ------------------------------------------------
+    // Create doctor profile for DEV/test doctor
+    // ------------------------------------------------
+
+    if (!doctor) {
+
+        doctor = {
+            id: user.id,
+
+            name:
+                user.name ||
+                'Dr. Test Doctor',
+
+            specialty:
+                'General Physician',
+
+            clinic_name:
+                'VandyCins Telehealth Clinic',
+
+            registration_number:
+                `TEST-${user.id}`,
+
+            rating: 5.0,
+
+            experience_years: 1,
+
+            consultation_fee: 500,
+
+            is_online: true
+        };
+
+        database.doctors.push(doctor);
+
+        console.log(
+            `[DOCTOR] Profile created ` +
+            `id=${doctor.id} ` +
+            `name=${doctor.name}`
+        );
+
+    } else {
+
+        // Existing doctor has logged in.
+        doctor.is_online = true;
+
+        // If existing profile has no name,
+        // take name from authenticated user.
+        if (
+            (!doctor.name || !doctor.name.trim()) &&
+            user.name &&
+            user.name.trim()
+        ) {
+            doctor.name = user.name.trim();
+        }
+
+        console.log(
+            `[DOCTOR] Marked online ` +
+            `id=${doctor.id}`
+        );
+    }
+
+    // ------------------------------------------------
+    // This is the doctor shown on Patient Home
+    // ------------------------------------------------
+
+    database.liveDoctorId = doctor.id;
+
+    return doctor;
+}
 database.users['doc_101'] = {
     id: 'doc_101',
     phone: '+919876543210',
@@ -498,18 +587,167 @@ function authenticate(req, res, next) {
         });
     }
 }
+// ====================================================
+// LIVE QUEUE
+// ====================================================
 
+app.get(
+    '/v1/queue/live',
+    authenticate,
+    (req, res) => {
+
+        try {
+
+            // ------------------------------------------------
+            // Find currently active doctor
+            // ------------------------------------------------
+
+            let doctor = null;
+
+            if (database.liveDoctorId) {
+
+                doctor =
+                    database.doctors.find(
+                        item =>
+                            item.id ===
+                            database.liveDoctorId
+                    );
+            }
+
+            // ------------------------------------------------
+            // Fallback only to an ONLINE doctor
+            //
+            // This is NOT a fake doctor.
+            // It uses an actual doctor profile already
+            // present in database.
+            // ------------------------------------------------
+
+            if (!doctor) {
+
+                doctor =
+                    database.doctors.find(
+                        item =>
+                            item.is_online === true
+                    );
+            }
+
+            // ------------------------------------------------
+            // No doctor available
+            // ------------------------------------------------
+
+            if (!doctor) {
+
+                return res.status(404).json({
+
+                    success: false,
+
+                    message:
+                        'No doctor is currently available.'
+                });
+            }
+
+            // ------------------------------------------------
+            // SAME consultation ID for
+            // Doctor + Patient
+            // ------------------------------------------------
+
+            const consultationId =
+                `live_${doctor.id}_${database.liveQueue.patientId}`;
+
+            // ------------------------------------------------
+            // Return REAL live queue
+            // ------------------------------------------------
+
+            return res.status(200).json({
+
+                success: true,
+
+                consultation_id:
+                    consultationId,
+
+                doctor: {
+
+                    id:
+                        doctor.id,
+
+                    name:
+                        doctor.name,
+
+                    specialty:
+                        doctor.specialty,
+
+                    clinic_name:
+                        doctor.clinic_name,
+
+                    registration_number:
+                        doctor.registration_number,
+
+                    rating:
+                        doctor.rating,
+
+                    experience_years:
+                        doctor.experience_years,
+
+                    consultation_fee:
+                        doctor.consultation_fee,
+
+                    is_online:
+                        Boolean(
+                            doctor.is_online
+                        )
+                },
+
+                current_serving_token:
+                    database.liveQueue
+                        .currentServingToken,
+
+                waiting_count:
+                    database.liveQueue
+                        .waitingCount,
+
+                user_token:
+                    database.liveQueue
+                        .userToken,
+
+                estimated_wait_minutes:
+                    database.liveQueue
+                        .estimatedWaitMinutes,
+
+                is_user_turn:
+                    database.liveQueue
+                        .isUserTurn,
+
+                upcoming_queue:
+                    database.liveQueue
+                        .upcomingQueue
+            });
+
+        } catch (error) {
+
+            console.error(
+                '[QUEUE] LIVE QUEUE FAILED:',
+                error
+            );
+
+            return res.status(500).json({
+
+                success: false,
+
+                message:
+                    'Unable to load live queue.'
+            });
+        }
+    }
+);
 
 // ====================================================
 // CONSULTATION CREATION
 // ====================================================
-
 function createConsultationIfMissing(
     consultationId,
-    doctorId = 'doc_101',
-    patientId = 'pat_789'
+    doctorId,
+    patientId
 ) {
-
     if (
         !consultationId ||
         consultationId.length > 128
@@ -519,8 +757,55 @@ function createConsultationIfMissing(
         );
     }
 
+    if (!doctorId) {
+        throw new Error(
+            'Doctor ID is required.'
+        );
+    }
+
+    if (!patientId) {
+        throw new Error(
+            'Patient ID is required.'
+        );
+    }
+
+    const doctor =
+        database.doctors.find(
+            item => item.id === doctorId
+        );
+
+    if (!doctor) {
+        const error = new Error(
+            'Doctor profile not found.'
+        );
+
+        error.statusCode = 404;
+
+        throw error;
+    }
+
+    const patient =
+        database.users[patientId];
+
+    if (
+        !patient ||
+        patient.role !== 'PATIENT'
+    ) {
+        const error = new Error(
+            'Patient account not found.'
+        );
+
+        error.statusCode = 404;
+
+        throw error;
+    }
+
     let consultation =
         database.consultations[consultationId];
+
+    // ------------------------------------------------
+    // CREATE ONLY ONCE
+    // ------------------------------------------------
 
     if (!consultation) {
 
@@ -536,26 +821,58 @@ function createConsultationIfMissing(
                 .toString('hex')}`;
 
         consultation =
-            database.consultations[consultationId] = {
+            database.consultations[
+                consultationId
+            ] = {
 
                 id: consultationId,
 
-                doctorId,
+                doctorId: doctorId,
 
-                patientId,
+                patientId: patientId,
 
-                channelName,
+                channelName: channelName,
 
                 status: 'ACTIVE',
 
                 createdAt:
-                    new Date().toISOString()
+                    new Date().toISOString(),
+
+                doctorJoined: false,
+
+                patientJoined: false
             };
+
+        console.log(
+            `[CONSULTATION] CREATED ` +
+            `id=${consultationId} ` +
+            `doctor=${doctorId} ` +
+            `patient=${patientId} ` +
+            `channel=${channelName}`
+        );
+    }
+
+    // ------------------------------------------------
+    // SECURITY:
+    // Existing consultation cannot silently change
+    // participants.
+    // ------------------------------------------------
+
+    if (
+        consultation.doctorId !== doctorId ||
+        consultation.patientId !== patientId
+    ) {
+        const error = new Error(
+            'Consultation participants do not match.'
+        );
+
+        error.statusCode = 403;
+
+        throw error;
     }
 
     return consultation;
 }
-
 
 // ====================================================
 // CONSULTATION AUTHORIZATION
@@ -1018,24 +1335,114 @@ app.post(
                 });
             }
 
-let user = findUserByPhoneAndRole(phone, role);
 
-if (!user && DEV_OTP_BYPASS) {
-    const userId =
-        `${role === 'DOCTOR' ? 'doc' : 'pat'}_${phone.replace(/\D/g, '')}`;
-
-    user = {
-        id: userId,
+let user =
+    findUserByPhoneAndRole(
         phone,
-        role,
-        name: ''
-    };
-
-    database.users[userId] = user;
+        role
+    );
+if (DEV_OTP_BYPASS) {
 
     console.log(
-        `[AUTH] DEV USER CREATED DURING VERIFY phone=${phone} role=${role} id=${userId}`
+        `[AUTH] DEV OTP BYPASS ` +
+        `user=${user.id} ` +
+        `role=${user.role}`
     );
+
+    // ------------------------------------------------
+    // Consume OTP
+    // ------------------------------------------------
+
+    otpStore.delete(key);
+
+    // ------------------------------------------------
+    // DOCTOR LOGIN
+    // ------------------------------------------------
+    //
+    // When doctor logs in:
+    //
+    // Doctor User
+    //      ↓
+    // Doctor Profile
+    //      ↓
+    // is_online = true
+    //      ↓
+    // liveDoctorId
+    //      ↓
+    // Patient Home sees this doctor
+    //
+    // ------------------------------------------------
+
+    if (user.role === 'DOCTOR') {
+
+        const doctor =
+            ensureDoctorProfile(user);
+
+        if (!doctor) {
+
+            return res.status(500).json({
+                success: false,
+                message:
+                    'Unable to activate doctor profile.'
+            });
+        }
+
+        console.log(
+            `[DOCTOR] ACTIVE ` +
+            `doctorId=${doctor.id} ` +
+            `name=${doctor.name}`
+        );
+    }
+
+    // ------------------------------------------------
+    // ACCESS TOKEN
+    // ------------------------------------------------
+
+    const accessToken =
+        createAccessToken(user);
+
+    // ------------------------------------------------
+    // REFRESH TOKEN
+    // ------------------------------------------------
+
+    const refreshToken =
+        `refresh_${crypto
+            .randomBytes(32)
+            .toString('hex')}`;
+
+    return res.status(200).json({
+
+        success: true,
+
+        access_token:
+            accessToken,
+
+        refresh_token:
+            refreshToken,
+
+        user_id:
+            user.id,
+
+        name:
+            user.name ||
+            (
+                user.role === 'DOCTOR'
+                    ? (
+                        database.doctors.find(
+                            doctor =>
+                                doctor.id === user.id
+                        )?.name ||
+                        'Dr. Test Doctor'
+                    )
+                    : 'Patient'
+            ),
+
+        phone:
+            user.phone,
+
+        role:
+            user.role
+    });
 }
 
             // OTP KEY
@@ -1062,7 +1469,30 @@ if (!user && DEV_OTP_BYPASS) {
             ) {
 
                 otpStore.delete(key);
+// ------------------------------------------------
+// ACTIVATE DOCTOR AFTER SUCCESSFUL LOGIN
+// ------------------------------------------------
 
+if (user.role === 'DOCTOR') {
+
+    const doctor =
+        ensureDoctorProfile(user);
+
+    if (!doctor) {
+
+        return res.status(500).json({
+            success: false,
+            message:
+                'Unable to activate doctor profile.'
+        });
+    }
+
+    console.log(
+        `[DOCTOR] LOGIN ACTIVE ` +
+        `doctorId=${doctor.id} ` +
+        `name=${doctor.name}`
+    );
+}
                 return res.status(401).json({
                     success: false,
                     message:
@@ -1350,81 +1780,150 @@ app.post(
                 ).trim();
 
             if (!consultationId) {
-
                 return res.status(400).json({
-
                     success: false,
-
                     message:
                         'Consultation ID is required.'
                 });
             }
 
+            // ------------------------------------------------
+            // Resolve participants
+            // ------------------------------------------------
 
-            // Create/fetch consultation
+            let doctorId;
+            let patientId;
+
+            if (req.user.role === 'DOCTOR') {
+
+                doctorId = req.user.id;
+
+                patientId =
+                    database.liveQueue.patientId;
+
+            } else {
+
+                patientId = req.user.id;
+
+                doctorId =
+                    database.liveDoctorId;
+            }
+
+            if (!doctorId) {
+                return res.status(404).json({
+                    success: false,
+                    message:
+                        'No doctor is currently active.'
+                });
+            }
+
+            if (!patientId) {
+                return res.status(404).json({
+                    success: false,
+                    message:
+                        'No patient is assigned to this consultation.'
+                });
+            }
+
+            // ------------------------------------------------
+            // Create / fetch SAME consultation
+            // ------------------------------------------------
+
             const consultation =
                 createConsultationIfMissing(
-                    consultationId
+                    consultationId,
+                    doctorId,
+                    patientId
                 );
 
+            // ------------------------------------------------
+            // Verify participant
+            // ------------------------------------------------
 
-            // Verify doctor/patient
             assertConsultationParticipant(
                 consultation,
                 req.user
             );
 
+            // ------------------------------------------------
+            // Active consultation
+            // ------------------------------------------------
 
-            // Consultation must be active
             if (
                 consultation.status !==
                 'ACTIVE'
             ) {
-
                 return res.status(409).json({
-
                     success: false,
-
                     message:
                         'This consultation is no longer active.'
                 });
             }
 
+            // ------------------------------------------------
+            // Doctor
+            // ------------------------------------------------
 
-            // Doctor information
             const doctor =
                 getDoctorForConsultation(
                     consultation
                 );
 
+            if (!doctor) {
+                return res.status(404).json({
+                    success: false,
+                    message:
+                        'Doctor profile not found.'
+                });
+            }
 
-            // Stable UID
+            // ------------------------------------------------
+            // Stable Agora UID
+            // ------------------------------------------------
+
             const uid =
                 getStableAgoraUid(
                     consultationId,
                     req.user
                 );
 
+            // ------------------------------------------------
+            // REAL Agora token
+            // SAME channel + SAME UID
+            // ------------------------------------------------
 
-            // Token for EXACT channel + UID
             const token =
                 generateAgoraToken(
                     consultation.channelName,
                     uid
                 );
 
+            // ------------------------------------------------
+            // Presence
+            // ------------------------------------------------
+
+            if (req.user.role === 'DOCTOR') {
+                consultation.doctorJoined = true;
+            }
+
+            if (req.user.role === 'PATIENT') {
+                consultation.patientJoined = true;
+            }
 
             console.log(
                 `[AGORA] JOIN ` +
                 `consultation=${consultationId} ` +
                 `user=${req.user.id} ` +
                 `role=${req.user.role} ` +
+                `doctor=${consultation.doctorId} ` +
+                `patient=${consultation.patientId} ` +
                 `channel=${consultation.channelName} ` +
                 `uid=${uid}`
             );
 
+            return res.status(200).json({
 
-            return res.json({
+                success: true,
 
                 appId:
                     AGORA_APP_ID,
@@ -1436,6 +1935,9 @@ app.post(
 
                 uid,
 
+                consultationId:
+                    consultation.id,
+
                 doctorId:
                     doctor.id,
 
@@ -1443,9 +1945,23 @@ app.post(
                     doctor.name,
 
                 specialty:
-                    doctor.specialty
-            });
+                    doctor.specialty,
 
+                doctorOnline:
+                    Boolean(
+                        doctor.is_online
+                    ),
+
+                doctorJoined:
+                    Boolean(
+                        consultation.doctorJoined
+                    ),
+
+                patientJoined:
+                    Boolean(
+                        consultation.patientJoined
+                    )
+            });
 
         } catch (error) {
 
@@ -1457,9 +1973,7 @@ app.post(
             return res.status(
                 error.statusCode || 500
             ).json({
-
                 success: false,
-
                 message:
                     error.message ||
                     'Unable to join consultation.'
@@ -1467,7 +1981,6 @@ app.post(
         }
     }
 );
-
 
 // ====================================================
 // AGORA VIDEO CONSULTATION
