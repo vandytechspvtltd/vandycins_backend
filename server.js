@@ -1036,7 +1036,206 @@ function getDoctorForConsultation(
         database.doctors[0]
     );
 }
+// ====================================================
+// CONSULTATIONS — LIST
+// ====================================================
 
+app.get(
+    '/v1/consultations',
+    authenticate,
+    (req, res) => {
+
+        try {
+
+            const consultations = [];
+
+
+            // ====================================================
+            // CURRENT LIVE CONSULTATION
+            // ====================================================
+
+            const doctor =
+                database.doctors.find(
+                    item =>
+                        item.id ===
+                        database.liveDoctorId
+                );
+
+
+            const patientId =
+                database.liveQueue.patientId;
+
+
+            if (doctor && patientId) {
+
+                const consultationId =
+                    `live_${doctor.id}_${patientId}`;
+
+
+                // Create the same consultation that
+                // Doctor + Patient will use for Agora.
+
+                const consultation =
+                    createConsultationIfMissing(
+                        consultationId,
+                        doctor.id,
+                        patientId
+                    );
+
+
+                const patient =
+                    database.users[patientId];
+
+
+                consultations.push({
+
+                    consultation_id:
+                        consultation.id,
+
+                    doctor_id:
+                        consultation.doctorId,
+
+                    patient_id:
+                        consultation.patientId,
+
+                    doctor_name:
+                        doctor.name,
+
+                    doctor_specialty:
+                        doctor.specialty,
+
+                    patient_name:
+                        patient?.name || 'Patient',
+
+                    channel_name:
+                        consultation.channelName,
+
+                    scheduled_at:
+                        null,
+
+                    status:
+                        consultation.status,
+
+                    created_at:
+                        consultation.createdAt
+                });
+
+            }
+
+
+            // ====================================================
+            // ADD OTHER EXISTING CONSULTATIONS
+            // ====================================================
+
+            Object.values(
+                database.consultations
+            ).forEach(
+                consultation => {
+
+                    const alreadyExists =
+                        consultations.some(
+                            item =>
+                                item.consultation_id ===
+                                consultation.id
+                        );
+
+
+                    if (alreadyExists) {
+                        return;
+                    }
+
+
+                    const consultationDoctor =
+                        database.doctors.find(
+                            doctor =>
+                                doctor.id ===
+                                consultation.doctorId
+                        );
+
+
+                    const consultationPatient =
+                        database.users[
+                            consultation.patientId
+                        ];
+
+
+                    consultations.push({
+
+                        consultation_id:
+                            consultation.id,
+
+                        doctor_id:
+                            consultation.doctorId,
+
+                        patient_id:
+                            consultation.patientId,
+
+                        doctor_name:
+                            consultationDoctor?.name ||
+                            'Doctor',
+
+                        doctor_specialty:
+                            consultationDoctor?.specialty ||
+                            'General Physician',
+
+                        patient_name:
+                            consultationPatient?.name ||
+                            'Patient',
+
+                        channel_name:
+                            consultation.channelName,
+
+                        scheduled_at:
+                            consultation.scheduledAt ||
+                            null,
+
+                        status:
+                            consultation.status,
+
+                        created_at:
+                            consultation.createdAt
+                    });
+
+                }
+            );
+
+
+            // ====================================================
+            // RESPONSE
+            // ====================================================
+
+            return res.status(200).json({
+
+                success: true,
+
+                consultations:
+                    consultations
+
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                '[CONSULTATIONS] LIST FAILED:',
+                error
+            );
+
+
+            return res.status(500).json({
+
+                success: false,
+
+                message:
+                    error.message ||
+                    'Unable to load consultations.'
+
+            });
+
+        }
+
+    }
+);
 
 // ====================================================
 // HEALTH CHECK
