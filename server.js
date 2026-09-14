@@ -299,7 +299,7 @@ const database = {
 
             {
                 token_number: 14,
-                patient_name: 'Rahul Sharma',
+                patient_name: 'Patient',
                 is_user: true,
                 status: 'Waiting'
             },
@@ -334,7 +334,7 @@ database.users['pat_789'] = {
     id: 'pat_789',
     phone: '+919876543211',
     role: 'PATIENT',
-    name: 'Rahul Sharma'
+    name: 'Patient'
 };
 
 
@@ -791,21 +791,35 @@ app.post(
             }
 
 
-            // USER MUST EXIST
-            const user = findUserByPhoneAndRole(
-                phone,
-                role
-            );
+    let user = findUserByPhoneAndRole(phone, role);
 
-            if (!user) {
+if (!user && DEV_OTP_BYPASS) {
 
-                return res.status(401).json({
-                    success: false,
-                    message:
-                        'This mobile number is not registered for the selected role.'
-                });
-            }
+    const userId =
+        `${role === 'DOCTOR' ? 'doc' : 'pat'}_${phone.replace(/\D/g, '')}`;
 
+    user = {
+        id: userId,
+        phone,
+        role,
+        name: ''
+    };
+
+    database.users[userId] = user;
+
+    console.log(
+        `[AUTH] DEV USER CREATED phone=${phone} role=${role} id=${userId}`
+    );
+}
+
+if (!user) {
+
+    return res.status(404).json({
+        success: false,
+        message:
+            `No ${role.toLowerCase()} account is registered with this mobile number.`
+    });
+}
 
             // OTP KEY
             const key = `${phone}:${role}`;
@@ -994,22 +1008,35 @@ app.post(
             }
 
 
-            // FIND USER
-            const user =
-                findUserByPhoneAndRole(
-                    phone,
-                    role
-                );
+         let user = findUserByPhoneAndRole(phone, role);
 
-            if (!user) {
+if (!user && DEV_OTP_BYPASS) {
 
-                return res.status(401).json({
-                    success: false,
-                    message:
-                        'This mobile number is not registered for the selected role.'
-                });
-            }
+    const userId =
+        `${role === 'DOCTOR' ? 'doc' : 'pat'}_${phone.replace(/\D/g, '')}`;
 
+    user = {
+        id: userId,
+        phone,
+        role,
+        name: ''
+    };
+
+    database.users[userId] = user;
+
+    console.log(
+        `[AUTH] DEV USER CREATED DURING VERIFY phone=${phone} role=${role} id=${userId}`
+    );
+}
+
+if (!user) {
+
+    return res.status(401).json({
+        success: false,
+        message:
+            'Mobile number is not registered for this role.'
+    });
+}
 
             // OTP KEY
             const key = `${phone}:${role}`;
