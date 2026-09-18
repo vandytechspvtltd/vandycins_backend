@@ -1,0 +1,63 @@
+const express = require('express');
+const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const { RtcTokenBuilder, RtcRole } = require('agora-token');
+const config = require('./config/env');
+
+const authRoutes = require('./modules/auth/auth.routes');
+const profileRoutes = require('./modules/profile/profile.routes');
+const queueRoutes = require('./modules/queue/queue.routes');
+const consultationRoutes = require('./modules/consultation/consultation.routes');
+const agoraRoutes = require('./modules/agora/agora.routes');
+const pharmacyRoutes = require('./modules/pharmacy/pharmacy.routes');
+const prescriptionRoutes = require('./modules/prescription/prescription.routes');
+const orderRoutes = require('./modules/orders/order.routes');
+const homeRoutes = require('./modules/home/home.routes');
+const doctorRoutes = require('./modules/doctors/doctor.routes');
+const specialtyRoutes = require('./modules/specialties/specialty.routes');
+const healthServiceRoutes = require('./modules/healthServices/healthService.routes');
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
+
+app.get('/health', (req, res) => res.json({
+    status: 'ok',
+    service: 'Telehealth Agora Backend API',
+    version: '2.0.0',
+    agoraAppIdConfigured: Boolean(config.agoraAppId),
+    agoraCertificateConfigured: Boolean(config.agoraAppCertificate),
+    tokenGeneratorAvailable: Boolean(RtcTokenBuilder && RtcRole),
+    authenticationConfigured: Boolean(jwt && config.jwtSecret)
+}));
+
+app.use('/v1/auth', authRoutes);
+app.use('/v1/home', homeRoutes);
+app.use('/api/home', homeRoutes);
+app.use('/v1/doctors', doctorRoutes);
+app.use('/v1/specialties', specialtyRoutes);
+app.use('/v1/health-services', healthServiceRoutes);
+app.use('/v1/profile', profileRoutes);
+app.use('/v1/queue', queueRoutes);
+app.use('/v1/consultations', consultationRoutes);
+app.use('/v1/consultations', agoraRoutes);
+app.use('/v1/pharmacy', pharmacyRoutes);
+app.use('/v1/prescriptions', prescriptionRoutes);
+app.use('/v1/orders', orderRoutes);
+
+app.listen(config.port, '0.0.0.0', () => {
+    console.log('====================================================');
+    console.log(`Telehealth API & Agora RTC Server running on :${config.port}`);
+    console.log(`Agora App ID configured: ${Boolean(config.agoraAppId)}`);
+    console.log(`Agora Certificate configured: ${Boolean(config.agoraAppCertificate)}`);
+    console.log(`Base URL: http://localhost:${config.port}/v1/`);
+    console.log(`Health Check: http://localhost:${config.port}/health`);
+    console.log('====================================================');
+});
+
+module.exports = app;
