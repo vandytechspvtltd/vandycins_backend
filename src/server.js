@@ -34,7 +34,19 @@ app.use((req, res, next) => {
     next();
 });
 
-app.get('/health', (req, res) => res.json({
+const apiInfo = (req, res) => res.json({
+    success: true,
+    message: 'Vandycins Backend API is running.',
+    version: '2.0.0',
+    docs: '/v1/api-docs',
+    openapi: '/v1/api-docs.json'
+});
+
+app.get('/', apiInfo);
+app.get('/v1', apiInfo);
+app.get('/v1/', apiInfo);
+
+const healthInfo = (req, res) => res.json({
     status: 'ok',
     service: 'Vandycins Backend API',
     version: '2.0.0',
@@ -42,7 +54,10 @@ app.get('/health', (req, res) => res.json({
     agoraCertificateConfigured: Boolean(config.agoraAppCertificate),
     tokenGeneratorAvailable: Boolean(RtcTokenBuilder && RtcRole),
     authenticationConfigured: Boolean(jwt && config.jwtAccessSecret && config.jwtRefreshSecret)
-}));
+});
+
+app.get('/health', healthInfo);
+app.get('/v1/health', healthInfo);
 
 app.use('/v1/auth', authRoutes);
 app.use('/v1/home', homeRoutes);
