@@ -36,7 +36,7 @@ app.use((req, res, next) => {
 
 app.get('/health', (req, res) => res.json({
     status: 'ok',
-    service: 'Telehealth Agora Backend API',
+    service: 'Vandycins Backend API',
     version: '2.0.0',
     agoraAppIdConfigured: Boolean(config.agoraAppId),
     agoraCertificateConfigured: Boolean(config.agoraAppCertificate),

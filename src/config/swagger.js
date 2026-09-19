@@ -1,7 +1,7 @@
 const swaggerDefinition = {
     openapi: '3.0.3',
     info: {
-        title: 'Telehealth Agora Backend API',
+        title: 'Vandycins Backend API',
         version: '2.0.0',
         description: 'OpenAPI documentation for the implemented Telehealth REST API.'
     },

@@ -1,4 +1,4 @@
-# Telehealth Agora Video & REST Backend (Node.js)
+# Vandycins Video & REST Backend (Node.js)
 
 Production-ready Node.js & Express REST API server with Agora RTC token service for the Telehealth Android application.
 
