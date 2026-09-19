@@ -27,6 +27,8 @@ app.use(cors());
 app.use(express.json());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.get('/api-docs.json', (req, res) => res.json(swaggerDocument));
+app.use('/v1/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.get('/v1/api-docs.json', (req, res) => res.json(swaggerDocument));
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
     next();
@@ -67,6 +69,7 @@ app.listen(config.port, '0.0.0.0', () => {
     console.log(`Base URL: http://localhost:${config.port}/v1/`);
     console.log(`Health Check: http://localhost:${config.port}/health`);
     console.log(`Swagger docs available at: http://localhost:${config.port}/api-docs`);
+    console.log(`Swagger docs v1 alias: http://localhost:${config.port}/v1/api-docs`);
     console.log(`OpenAPI JSON available at: http://localhost:${config.port}/api-docs.json`);
     console.log('====================================================');
 });
