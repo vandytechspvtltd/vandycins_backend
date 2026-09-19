@@ -6,8 +6,8 @@ const swaggerDefinition = {
         description: 'OpenAPI documentation for the implemented Telehealth REST API.'
     },
     servers: [
-        { url: 'https://vandycinsapis.vandymondglobal.in/v1/', description: 'Production server' },
-        { url: 'http://localhost:5000/v1/', description: 'Local server' }
+        { url: 'https://vandycinsapis.vandymondglobal.in', description: 'Production server' },
+        { url: 'http://localhost:5000', description: 'Local server' }
     ],
     tags: [
         { name: 'System', description: 'Service health' },
