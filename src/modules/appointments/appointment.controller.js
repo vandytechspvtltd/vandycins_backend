@@ -1,68 +1,59 @@
 const database = require('../../database/database');
+const appointmentService = require('./appointment.service');
 
-const APPOINTMENT_TYPES = new Set(['VIDEO', 'AUDIO', 'CHAT']);
-
-function doctorFor(id) {
-    return database.doctors.find(doctor => doctor.id === id) || null;
-}
-
-function toAppointment(item) {
-    const doctor = doctorFor(item.doctorId);
-    const scheduled = item.scheduledAt ? new Date(item.scheduledAt) : null;
-    return {
-        id: item.id,
-        doctorId: item.doctorId,
-        doctorName: doctor?.name || null,
-        doctorAvatar: doctor?.profile_image || null,
-        doctorSpecialty: doctor?.specialty || null,
-        type: item.consultationType || 'VIDEO',
-        status: item.status === 'SCHEDULED' ? 'UPCOMING' : item.status,
-        date: scheduled && !Number.isNaN(scheduled.getTime()) ? scheduled.toISOString().slice(0, 10) : null,
-        time: scheduled && !Number.isNaN(scheduled.getTime()) ? scheduled.toISOString().slice(11, 16) : null,
-        symptoms: item.symptoms || null,
-        prescriptionId: item.prescriptionId || null
-    };
-}
-
-function patientAppointment(item, patientId) {
-    return item && item.patientId === patientId;
-}
+function patientAppointment(item, patientId) { return item && item.patientId === patientId; }
 
 function list(req, res) {
-    const appointments = Object.values(database.consultations)
-        .filter(item => patientAppointment(item, req.user.id))
-        .map(toAppointment);
+    const status = String(req.query.status || '').trim().toUpperCase();
+    const appointments = database.appointments.filter(item => patientAppointment(item, req.user.id))
+        .filter(item => !status || appointmentService.toResponse(item).status === status)
+        .map(appointmentService.toResponse);
     return res.json({ success: true, data: appointments });
 }
 
 function details(req, res) {
-    const appointment = database.consultations[req.params.appointmentId];
+    const appointment = database.appointments.find(item => item.id === req.params.appointmentId);
     if (!patientAppointment(appointment, req.user.id)) return res.status(404).json({ success: false, message: 'Appointment not found.' });
-    return res.json({ success: true, data: toAppointment(appointment) });
+    return res.json({ success: true, data: appointmentService.toResponse(appointment) });
 }
 
 function book(req, res) {
     if (req.user.role !== 'PATIENT') return res.status(403).json({ success: false, message: 'Patient access is required.' });
     const doctorId = String(req.body?.doctorId || '').trim();
-    const date = String(req.body?.date || '').trim();
-    const time = String(req.body?.time || '').trim();
-    const type = String(req.body?.type || 'VIDEO').trim().toUpperCase();
-    if (!doctorId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !time || !APPOINTMENT_TYPES.has(type)) {
-        return res.status(400).json({ success: false, message: 'doctorId, date, time, and a valid type are required.' });
+    const slotId = String(req.body?.slotId || '').trim();
+    const consultationType = String(req.body?.consultationType || req.body?.type || 'VIDEO').trim().toUpperCase();
+    try {
+        const appointment = appointmentService.createBooking({ patientId: req.user.id, doctorId, slotId, consultationType, symptoms: req.body?.symptoms });
+        return res.status(201).json({ success: true, message: 'Appointment created successfully', data: appointmentService.toResponse(appointment) });
+    } catch (error) {
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Unable to create appointment.' });
     }
-    const doctor = doctorFor(doctorId);
-    if (!doctor || doctor.is_active === false) return res.status(404).json({ success: false, message: 'Doctor not found.' });
-    return res.status(409).json({ success: false, message: 'No available slot exists for this doctor and time.' });
 }
 
 function cancel(req, res) {
-    const appointment = database.consultations[req.params.appointmentId];
-    if (!patientAppointment(appointment, req.user.id)) return res.status(404).json({ success: false, message: 'Appointment not found.' });
-    if (['ENDED', 'COMPLETED', 'CANCELLED', 'CANCELED'].includes(String(appointment.status).toUpperCase())) {
-        return res.status(409).json({ success: false, message: 'This appointment cannot be cancelled.' });
+    try {
+        const appointment = appointmentService.cancelAppointment(database.appointments.find(item => item.id === req.params.appointmentId), req.user.id, req.body?.reason);
+        return res.json({ success: true, message: 'Appointment cancelled successfully', data: appointmentService.toResponse(appointment) });
+    } catch (error) {
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Unable to cancel appointment.' });
     }
-    appointment.status = 'CANCELLED';
-    return res.json({ success: true, data: toAppointment(appointment) });
 }
 
-module.exports = { list, details, book, cancel };
+function payment(req, res) {
+    try {
+        const appointment = database.appointments.find(item => item.id === req.params.appointmentId);
+        const record = appointmentService.initiatePayment(appointment, req.user.id, String(req.body?.paymentMethod || '').trim().toUpperCase());
+        return res.status(201).json({ success: true, message: 'Payment initiated and pending provider confirmation.', data: { paymentId: record.id, orderId: record.id, amount: record.amount, currency: 'INR', paymentMethod: record.method, status: record.status, provider: record.provider } });
+    } catch (error) {
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Unable to initiate payment.' });
+    }
+}
+
+function slots(req, res) {
+    const date = String(req.query.date || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ success: false, message: 'date must use YYYY-MM-DD format.' });
+    if (!appointmentService.doctorFor(req.params.doctorId)) return res.status(404).json({ success: false, message: 'Doctor not found.' });
+    return res.json({ success: true, data: { doctorId: req.params.doctorId, date, slots: appointmentService.slotsForDoctorDate(req.params.doctorId, date) } });
+}
+
+module.exports = { list, details, book, cancel, payment, slots };

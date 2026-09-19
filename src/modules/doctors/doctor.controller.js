@@ -20,7 +20,7 @@ function getSlots(req, res) {
     }
     const doctor = doctorService.getDoctor(req.params.doctorId);
     if (!doctor) return res.status(404).json({ success: false, message: 'Doctor not found.' });
-    return res.json({ success: true, data: { date: req.query.date || null, slots: doctorService.getAvailableSlots(req.params.doctorId, req.query.date) } });
+    return res.json({ success: true, data: { doctorId: req.params.doctorId, date: req.query.date, slots: doctorService.getAvailableSlots(req.params.doctorId, req.query.date) } });
 }
 
 module.exports = { listDoctors, getDoctor, getSlots };

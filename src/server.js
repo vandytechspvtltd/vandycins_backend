@@ -19,6 +19,7 @@ const specialtyRoutes = require('./modules/specialties/specialty.routes');
 const healthServiceRoutes = require('./modules/healthServices/healthService.routes');
 const appointmentRoutes = require('./modules/appointments/appointment.routes');
 const notificationRoutes = require('./modules/notifications/notification.routes');
+const paymentRoutes = require('./modules/payments/payment.routes');
 
 const app = express();
 
@@ -47,6 +48,7 @@ app.use('/api/home', homeRoutes);
 app.use('/v1/doctors', doctorRoutes);
 app.use('/v1/appointments', appointmentRoutes);
 app.use('/v1/notifications', notificationRoutes);
+app.use('/v1/payments', paymentRoutes);
 app.use('/v1/specialties', specialtyRoutes);
 app.use('/v1/specialities', specialtyRoutes);
 app.use('/v1/health-services', healthServiceRoutes);

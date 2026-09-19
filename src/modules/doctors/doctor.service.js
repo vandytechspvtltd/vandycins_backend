@@ -1,4 +1,5 @@
 const database = require('../../database/database');
+const appointmentService = require('../appointments/appointment.service');
 
 const SPECIALTY_TERMS = {
     'general physician': ['general physician'],
@@ -132,9 +133,7 @@ function getDoctor(id) {
 }
 
 function getAvailableSlots(id, date) {
-    const doctor = database.doctors.find(item => item.id === id);
-    if (!doctor || !date || !Array.isArray(doctor.availability)) return [];
-    return doctor.availability.filter(slot => slot.date === date && slot.isAvailable === true);
+    return appointmentService.slotsForDoctorDate(id, date);
 }
 
 module.exports = { listDoctors, getDoctor, getAvailableSlots, parseNumber };
