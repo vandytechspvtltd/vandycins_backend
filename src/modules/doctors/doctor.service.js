@@ -45,11 +45,20 @@ function listDoctors(query = {}) {
     }
     const limit = parseNumber(query.limit, 'limit', { min: 1, max: 100 }) || 20;
     const offset = parseNumber(query.offset, 'offset', { min: 0 }) || 0;
+    const minRating = parseNumber(query.minRating, 'minRating', { min: 0, max: 5 });
+    const maxFee = parseNumber(query.maxFee, 'maxFee', { min: 0 });
+    const minExperience = parseNumber(query.minExperience, 'minExperience', { min: 0 });
+    const maxDistance = parseNumber(query.maxDistance, 'maxDistance', { min: 0 });
+    const onlineOnly = query.onlineOnly === undefined ? false : String(query.onlineOnly).toLowerCase() === 'true';
 
     let doctors = database.doctors.filter(doctor => {
         const matchesSearch = !search || doctor.name.toLowerCase().includes(search) || doctor.specialty.toLowerCase().includes(search);
         const matchesSpecialty = !specialty || specialtyMatches(doctor.specialty, specialty);
-        return matchesSearch && matchesSpecialty;
+        return matchesSearch && matchesSpecialty &&
+            (minRating === null || Number(doctor.rating) >= minRating) &&
+            (maxFee === null || Number(doctor.consultation_fee) <= maxFee) &&
+            (minExperience === null || Number(doctor.experience_years) >= minExperience) &&
+            (!onlineOnly || doctor.is_online === true);
     });
 
     if (latitude !== null && longitude !== null) {
@@ -61,6 +70,9 @@ function listDoctors(query = {}) {
         });
     }
 
+    if (maxDistance !== null && latitude !== null && longitude !== null) {
+        doctors = doctors.filter(doctor => doctor.distance_km !== null && doctor.distance_km <= maxDistance);
+    }
     const total = doctors.length;
     const items = doctors.slice(offset, offset + limit).map(doctor => ({
         id: doctor.id,
@@ -73,10 +85,56 @@ function listDoctors(query = {}) {
         consultation_fee: doctor.consultation_fee,
         is_online: Boolean(doctor.is_online),
         location: doctor.location || null,
-        ...(Object.prototype.hasOwnProperty.call(doctor, 'distance_km') ? { distance_km: doctor.distance_km } : {})
+        ...(Object.prototype.hasOwnProperty.call(doctor, 'distance_km') ? { distance_km: doctor.distance_km } : {}),
+        avatar: doctor.profile_image || null,
+        qualification: doctor.qualification || doctor.qualifications || null,
+        experienceYears: doctor.experience_years ?? null,
+        reviewCount: doctor.review_count || 0,
+        consultationFee: doctor.consultation_fee ?? null,
+        isOnline: Boolean(doctor.is_online),
+        isVerified: Boolean(doctor.is_verified),
+        clinicName: doctor.clinic_name || null,
+        clinicAddress: doctor.clinic_address || doctor.location || null,
+        distanceKm: Object.prototype.hasOwnProperty.call(doctor, 'distance_km') ? doctor.distance_km : null,
+        registrationNumber: doctor.registration_number || null,
+        about: doctor.about || doctor.bio || null
     }));
 
     return { items, pagination: { limit, offset, total } };
 }
 
-module.exports = { listDoctors, parseNumber };
+function doctorProfile(doctor) {
+    return {
+        id: doctor.id,
+        name: doctor.name || null,
+        avatar: doctor.avatar || doctor.profile_image || null,
+        specialty: doctor.specialty || null,
+        qualification: doctor.qualification || doctor.qualifications || null,
+        experienceYears: doctor.experienceYears ?? doctor.experience_years ?? null,
+        rating: doctor.rating ?? 0,
+        reviewCount: doctor.reviewCount ?? doctor.review_count ?? 0,
+        consultationFee: doctor.consultationFee ?? doctor.consultation_fee ?? null,
+        isOnline: Boolean(doctor.isOnline ?? doctor.is_online),
+        isVerified: Boolean(doctor.isVerified ?? doctor.is_verified),
+        clinicName: doctor.clinicName ?? doctor.clinic_name ?? null,
+        clinicAddress: doctor.clinicAddress ?? doctor.clinic_address ?? doctor.location ?? null,
+        distanceKm: null,
+        registrationNumber: doctor.registrationNumber ?? doctor.registration_number ?? null,
+        about: doctor.about ?? doctor.bio ?? null,
+        availableSlots: Array.isArray(doctor.availableSlots) ? doctor.availableSlots : [],
+        reviews: Array.isArray(doctor.reviews) ? doctor.reviews : []
+    };
+}
+
+function getDoctor(id) {
+    const doctor = database.doctors.find(item => item.id === id && item.is_active !== false);
+    return doctor ? doctorProfile(doctor) : null;
+}
+
+function getAvailableSlots(id, date) {
+    const doctor = database.doctors.find(item => item.id === id);
+    if (!doctor || !date || !Array.isArray(doctor.availability)) return [];
+    return doctor.availability.filter(slot => slot.date === date && slot.isAvailable === true);
+}
+
+module.exports = { listDoctors, getDoctor, getAvailableSlots, parseNumber };

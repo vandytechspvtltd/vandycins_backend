@@ -46,14 +46,19 @@ function create(req, res) {
 }
 
 function latest(req, res) {
-    const prescription = database.prescriptions.filter(item => item.patient_id === req.user.id).slice(-1)[0] || null;
+    const prescription = database.prescriptions.filter(item => item.patient_id === req.user.id || item.patientId === req.user.id).slice(-1)[0] || null;
     return res.json({ success: true, prescription });
+}
+
+function list(req, res) {
+    const prescriptions = database.prescriptions.filter(item => item.patient_id === req.user.id || item.patientId === req.user.id);
+    return res.json({ success: true, data: prescriptions });
 }
 
 function byId(req, res) {
     const prescription = database.prescriptions.find(item => item.id === req.params.id);
-    if (!prescription) return res.status(404).json({ success: false, message: 'Prescription not found.' });
+    if (!prescription || (prescription.patient_id !== req.user.id && prescription.patientId !== req.user.id)) return res.status(404).json({ success: false, message: 'Prescription not found.' });
     return res.json({ success: true, prescription });
 }
 
-module.exports = { create, latest, byId };
+module.exports = { create, list, latest, byId };

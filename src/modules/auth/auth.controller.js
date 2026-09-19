@@ -1,4 +1,3 @@
-const crypto = require('crypto');
 const authService = require('./auth.service');
 const database = require('../../database/database');
 
@@ -27,9 +26,19 @@ function verifyOtp(req, res) {
 }
 
 function refreshToken(req, res) {
-    return res.json({ access_token: authService.createAccessToken(req.user), refresh_token: `refresh_${crypto.randomBytes(32).toString('hex')}` });
+    try {
+        const result = authService.rotateRefreshToken(req.body?.refreshToken || req.body?.refresh_token);
+        return res.json({ success: true, data: { accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user }, access_token: result.accessToken, refresh_token: result.refreshToken });
+    } catch (error) {
+        return res.status(401).json({ success: false, message: 'Invalid or expired refresh token' });
+    }
 }
 
-function logout(req, res) { return res.status(200).send(); }
+function logout(req, res) {
+    const refreshToken = req.body?.refreshToken || req.body?.refresh_token;
+    if (refreshToken) authService.revokeRefreshToken(refreshToken);
+    else if (req.user) authService.revokeAllRefreshTokens(req.user.id);
+    return res.json({ success: true, message: 'Logged out successfully.' });
+}
 
 module.exports = { sendOtp, verifyOtp, refreshToken, logout };

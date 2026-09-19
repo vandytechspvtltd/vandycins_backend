@@ -43,8 +43,46 @@ function ensureDoctorProfile(user) {
 }
 
 function createAccessToken(user) {
-    if (!config.jwtSecret) throw new Error('JWT_SECRET is not configured.');
-    return jwt.sign({ sub: user.id, role: user.role, phone: user.phone }, config.jwtSecret, { expiresIn: config.accessTokenTtl });
+    if (!config.jwtAccessSecret) throw new Error('JWT_ACCESS_SECRET is not configured.');
+    return jwt.sign({ sub: user.id, role: user.role, phone: user.phone, tokenType: 'access' }, config.jwtAccessSecret, { expiresIn: config.jwtAccessExpiresIn });
+}
+
+function hashRefreshToken(token) {
+    return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+function createRefreshToken(user) {
+    if (!config.jwtRefreshSecret) throw new Error('JWT_REFRESH_SECRET is not configured.');
+    const tokenId = crypto.randomUUID();
+    const token = jwt.sign({ sub: user.id, role: user.role, tokenType: 'refresh' }, config.jwtRefreshSecret, { expiresIn: config.jwtRefreshExpiresIn, jwtid: tokenId });
+    const payload = jwt.decode(token);
+    database.refreshTokens.push({ id: tokenId, userId: user.id, tokenHash: hashRefreshToken(token), expiresAt: new Date(payload.exp * 1000).toISOString(), revokedAt: null, createdAt: new Date().toISOString() });
+    return token;
+}
+
+function revokeRefreshToken(token) {
+    const tokenHash = hashRefreshToken(token);
+    const record = database.refreshTokens.find(item => item.tokenHash === tokenHash && !item.revokedAt);
+    if (record) record.revokedAt = new Date().toISOString();
+    return record || null;
+}
+
+function revokeAllRefreshTokens(userId) {
+    const revokedAt = new Date().toISOString();
+    database.refreshTokens.filter(item => item.userId === userId && !item.revokedAt).forEach(item => { item.revokedAt = revokedAt; });
+}
+
+function rotateRefreshToken(token) {
+    if (!token || typeof token !== 'string' || token.length > 4096) throw new Error('Invalid or expired refresh token');
+    let payload;
+    try { payload = jwt.verify(token, config.jwtRefreshSecret); } catch (error) { throw new Error('Invalid or expired refresh token'); }
+    if (payload.tokenType !== 'refresh' || !payload.sub || !payload.jti) throw new Error('Invalid or expired refresh token');
+    const record = database.refreshTokens.find(item => item.id === payload.jti && item.tokenHash === hashRefreshToken(token));
+    if (!record || record.revokedAt || new Date(record.expiresAt).getTime() <= Date.now()) throw new Error('Invalid or expired refresh token');
+    const user = database.users[payload.sub];
+    if (!user || user.role !== payload.role) throw new Error('Invalid or expired refresh token');
+    record.revokedAt = new Date().toISOString();
+    return { user, accessToken: createAccessToken(user), refreshToken: createRefreshToken(user) };
 }
 
 async function sendOtpSms({ phone, otp, role }) {
@@ -67,10 +105,13 @@ function getOrCreateUser(phone, role) {
 }
 
 function loginResponse(user) {
+    const accessToken = createAccessToken(user);
+    const refreshToken = createRefreshToken(user);
     return {
         success: true,
-        access_token: createAccessToken(user),
-        refresh_token: `refresh_${crypto.randomBytes(32).toString('hex')}`,
+        data: { accessToken, refreshToken, user },
+        access_token: accessToken,
+        refresh_token: refreshToken,
         user_id: user.id,
         name: user.name,
         phone: user.phone,
@@ -128,4 +169,4 @@ function verifyOtp(phoneInput, otp, role) {
     return loginResponse(user);
 }
 
-module.exports = { findUserByPhoneAndRole, ensureDoctorProfile, createAccessToken, requestOtp, verifyOtp };
+module.exports = { findUserByPhoneAndRole, ensureDoctorProfile, createAccessToken, createRefreshToken, rotateRefreshToken, revokeRefreshToken, revokeAllRefreshTokens, requestOtp, verifyOtp };

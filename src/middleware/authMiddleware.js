@@ -24,7 +24,7 @@ function authenticate(req, res, next) {
             });
         }
 
-        if (!config.jwtSecret) {
+        if (!config.jwtAccessSecret) {
 
             console.log('❌ JWT secret missing');
 
@@ -36,12 +36,9 @@ function authenticate(req, res, next) {
 
         const accessToken = authorization.substring(7).trim();
 
-        console.log('Token present:', Boolean(accessToken));
-        console.log('Token length:', accessToken.length);
-
         const payload = jwt.verify(
             accessToken,
-            config.jwtSecret
+            config.jwtAccessSecret
         );
 
         console.log('✅ JWT verified');

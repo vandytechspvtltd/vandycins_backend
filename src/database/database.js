@@ -53,6 +53,7 @@ const database = {
         ]
     },
     users: {},
+    refreshTokens: [],
     profiles: {},
     consultations: {},
     agoraParticipants: {},
