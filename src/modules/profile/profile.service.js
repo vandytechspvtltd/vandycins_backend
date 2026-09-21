@@ -6,20 +6,17 @@ const GENDERS = new Set(['MALE', 'FEMALE', 'OTHER']);
 function validateProfile(input) {
     const profile = {
         name: String(input.name || '').trim(),
-        blood_group: String(input.blood_group || '').trim().toUpperCase(),
         gender: String(input.gender || '').trim().toUpperCase(),
+        bloodGroup: String(input.bloodGroup || '').trim().toUpperCase(),
+        age: input.age === undefined || input.age === '' ? null : Number(input.age),
         email: String(input.email || '').trim().toLowerCase(),
-        city: String(input.city || '').trim(),
-        avatar: String(input.avatar || '').trim() || null,
-        latitude: input.latitude === undefined || input.latitude === '' ? null : Number(input.latitude),
-        longitude: input.longitude === undefined || input.longitude === '' ? null : Number(input.longitude)
+        image: String(input.image || '').trim() || null
     };
     if (!profile.name) return 'Name is required.';
-    if (!BLOOD_GROUPS.has(profile.blood_group)) return 'Valid blood group is required.';
     if (!GENDERS.has(profile.gender)) return 'Valid gender is required.';
+    if (!BLOOD_GROUPS.has(profile.bloodGroup)) return 'Valid blood group is required.';
+    if (!Number.isInteger(profile.age) || profile.age < 0) return 'Valid age is required.';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email)) return 'Valid email is required.';
-    if (profile.latitude !== null && (!Number.isFinite(profile.latitude) || profile.latitude < -90 || profile.latitude > 90)) return 'Latitude must be between -90 and 90.';
-    if (profile.longitude !== null && (!Number.isFinite(profile.longitude) || profile.longitude < -180 || profile.longitude > 180)) return 'Longitude must be between -180 and 180.';
     return profile;
 }
 
