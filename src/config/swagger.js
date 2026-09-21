@@ -46,9 +46,9 @@ const swaggerDefinition = {
                 }
             },
             Profile: {
-                type: 'object', required: ['name', 'dob', 'blood_group', 'gender', 'email', 'city'],
+                type: 'object', required: ['name', 'blood_group', 'gender', 'email', 'city'],
                 properties: {
-                    name: { type: 'string' }, dob: { type: 'string', format: 'date' }, blood_group: { type: 'string', enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] }, gender: { type: 'string', enum: ['MALE', 'FEMALE', 'OTHER'] }, email: { type: 'string', format: 'email' }, city: { type: 'string' }, avatar: { type: 'string', nullable: true }, latitude: { type: 'number', minimum: -90, maximum: 90, nullable: true }, longitude: { type: 'number', minimum: -180, maximum: 180, nullable: true }, age: { type: 'integer' }
+                    name: { type: 'string' }, blood_group: { type: 'string', enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] }, gender: { type: 'string', enum: ['MALE', 'FEMALE', 'OTHER'] }, email: { type: 'string', format: 'email' }, city: { type: 'string' }, avatar: { type: 'string', nullable: true }, latitude: { type: 'number', minimum: -90, maximum: 90, nullable: true }, longitude: { type: 'number', minimum: -180, maximum: 180, nullable: true }
                 }
             },
             Doctor: {
