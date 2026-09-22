@@ -21,9 +21,10 @@ function book(req, res) {
     if (req.user.role !== 'PATIENT') return res.status(403).json({ success: false, message: 'Patient access is required.' });
     const doctorId = String(req.body?.doctorId || '').trim();
     const slotId = String(req.body?.slotId || '').trim();
+    const date = String(req.body?.date || req.body?.slotDate || '').trim();
     const consultationType = String(req.body?.consultationType || req.body?.type || 'VIDEO').trim().toUpperCase();
     try {
-        const appointment = appointmentService.createBooking({ patientId: req.user.id, doctorId, date: req.body?.date, slotId, consultationType, symptoms: req.body?.symptoms });
+        const appointment = appointmentService.createBooking({ patientId: req.user.id, doctorId, date, slotId, consultationType, symptoms: req.body?.symptoms });
         return res.status(201).json({ success: true, message: 'Appointment created successfully', data: appointmentService.toResponse(appointment) });
     } catch (error) {
         return res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Unable to create appointment.' });

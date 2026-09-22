@@ -119,6 +119,7 @@ function toResponse(item) {
         id: item.id,
         appointmentId: item.id,
         doctorId: item.doctorId,
+        slotId: item.slotId || null,
         doctorName: doctor?.name || null,
         doctorAvatar: doctor?.profile_image || null,
         doctorSpecialty: doctor?.specialty || null,
@@ -145,11 +146,15 @@ function createBooking({ patientId, doctorId, date, slotId, consultationType, sy
     if (!CONSULTATION_TYPES.has(consultationType)) throw Object.assign(new Error('consultationType must be VIDEO, AUDIO, or CHAT.'), { statusCode: 400 });
     const doctor = doctorFor(doctorId);
     if (!doctor) throw Object.assign(new Error('Doctor not found.'), { statusCode: 404 });
+    if (!slotId) throw Object.assign(new Error('slotId must be the actual slot ID returned by the slots API.'), { statusCode: 400 });
+    if (/^\d{4}-\d{2}-\d{2}$/.test(slotId)) throw Object.assign(new Error('slotId must be the actual slot ID, not a date. Send the date separately as date or slotDate.'), { statusCode: 400 });
     const storedSlot = database.doctorSlots.find(item => item.id === slotId && item.doctorId === doctorId);
     const slotDate = String(date || storedSlot?.date || String(slotId).match(/^[^_]+_(\d{4}-\d{2}-\d{2})_/)?.[1] || '').trim();
     if (!dateIsValid(slotDate)) throw Object.assign(new Error('A valid slot date is required.'), { statusCode: 400 });
+    if (date && storedSlot?.date && storedSlot.date !== slotDate) throw Object.assign(new Error('The slot does not match the requested date.'), { statusCode: 400 });
     const currentSlot = findSlot(doctorId, slotDate, slotId);
-    if (!currentSlot || !currentSlot.available) throw Object.assign(new Error('This doctor slot is no longer available.'), { statusCode: 409 });
+    if (!currentSlot) throw Object.assign(new Error('Doctor slot not found for the requested doctor and date.'), { statusCode: 404 });
+    if (!currentSlot.available) throw Object.assign(new Error('This doctor slot is no longer available.'), { statusCode: 409 });
     const time24 = timeTo24Hour(currentSlot.time) || (currentSlot.time && /^\d{2}:\d{2}$/.test(currentSlot.time) ? currentSlot.time : null);
     if (!dateIsValid(currentSlot.date) || !time24) throw Object.assign(new Error('Doctor slot has invalid date or time.'), { statusCode: 400 });
     const duplicate = database.appointments.find(item => item.doctorId === doctorId && item.slotId === slotId && !['CANCELLED', 'FAILED'].includes(item.status));
