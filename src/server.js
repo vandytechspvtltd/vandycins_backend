@@ -8,15 +8,10 @@ const swaggerDocument = require('./config/swagger');
 
 const authRoutes = require('./modules/auth/auth.routes');
 const profileRoutes = require('./modules/profile/profile.routes');
-const queueRoutes = require('./modules/queue/queue.routes');
-const consultationRoutes = require('./modules/consultation/consultation.routes');
-const pharmacyRoutes = require('./modules/pharmacy/pharmacy.routes');
-const prescriptionRoutes = require('./modules/prescription/prescription.routes');
 const orderRoutes = require('./modules/orders/order.routes');
 const homeRoutes = require('./modules/home/home.routes');
 const doctorRoutes = require('./modules/doctors/doctor.routes');
 const specialtyRoutes = require('./modules/specialties/specialty.routes');
-const healthServiceRoutes = require('./modules/healthServices/healthService.routes');
 const appointmentRoutes = require('./modules/appointments/appointment.routes');
 const notificationRoutes = require('./modules/notifications/notification.routes');
 const paymentRoutes = require('./modules/payments/payment.routes');
@@ -68,12 +63,7 @@ app.use('/v1/notifications', notificationRoutes);
 app.use('/v1/payments', paymentRoutes);
 app.use('/v1/specialties', specialtyRoutes);
 app.use('/v1/specialities', specialtyRoutes);
-app.use('/v1/health-services', healthServiceRoutes);
 app.use('/v1/profile', profileRoutes);
-app.use('/v1/queue', queueRoutes);
-app.use('/v1/consultations', consultationRoutes);
-app.use('/v1/pharmacy', pharmacyRoutes);
-app.use('/v1/prescriptions', prescriptionRoutes);
 app.use('/v1/orders', orderRoutes);
 
 app.listen(config.port, '0.0.0.0', () => {
