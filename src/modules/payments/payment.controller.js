@@ -1,7 +1,6 @@
 const database = require('../../database/database');
 
 function webhook(req, res) {
-    if (!process.env.PAYMENT_WEBHOOK_SECRET) return res.status(503).json({ success: false, message: 'Payment webhook is not configured.' });
     const { paymentId, status, transactionReference } = req.body || {};
     const payment = database.payments.find(item => item.id === paymentId);
     if (!payment) return res.status(404).json({ success: false, message: 'Payment not found.' });

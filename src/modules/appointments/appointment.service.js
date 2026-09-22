@@ -104,7 +104,7 @@ function findSlot(doctorId, date, slotId) {
 }
 
 function appointmentStatus(item) {
-    if (item.status === 'CONFIRMED' && item.dateTime && new Date(item.dateTime).getTime() > Date.now()) return 'UPCOMING';
+    if (['CONFIRMED', 'UPCOMING'].includes(item.status) && item.dateTime && new Date(item.dateTime).getTime() > Date.now()) return 'UPCOMING';
     return item.status;
 }
 
@@ -137,7 +137,7 @@ function toResponse(item) {
         platformFee: item.platformFee,
         totalAmount: item.totalAmount,
         paymentId: payment?.id || null,
-        paymentStatus: payment?.status || 'PENDING',
+        paymentStatus: payment?.status === 'SUCCESS' ? 'PAID' : (payment?.status || 'PENDING'),
         payment: payment ? { id: payment.id, method: payment.method, status: payment.status, transactionReference: payment.transactionReference || null, refundStatus: payment.refundStatus || null } : null
     };
 }
@@ -168,6 +168,19 @@ function createBooking({ patientId, doctorId, date, slotId, consultationType, sy
         status: 'PENDING_PAYMENT', createdAt: new Date().toISOString(), cancelledAt: null, cancellationReason: null, prescriptionId: null
     };
     database.appointments.push(appointment);
+    database.payments.push({
+        id: `pay_${appointment.id}`,
+        appointmentId: appointment.id,
+        patientId,
+        amount: appointment.totalAmount,
+        method: null,
+        status: 'PENDING',
+        provider: null,
+        transactionReference: null,
+        refundStatus: null,
+        createdAt: appointment.createdAt,
+        updatedAt: appointment.createdAt
+    });
     if (storedSlot && storedSlot.date === currentSlot.date) storedSlot.bookedAppointmentId = appointment.id;
     else database.doctorSlots.push({ ...currentSlot, bookedAppointmentId: appointment.id });
     return appointment;
