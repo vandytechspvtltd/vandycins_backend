@@ -63,7 +63,7 @@ function generatedSlotsForDoctorDate(doctor, date) {
     const dayOfWeek = new Date(`${date}T00:00:00.000Z`).getUTCDay();
     const slots = [];
 
-    doctor.schedule.filter(schedule => schedule.dayOfWeek === dayOfWeek).forEach(schedule => {
+    doctor.schedule.filter(schedule => schedule.dayOfWeek === dayOfWeek || schedule.daysOfWeek?.includes(dayOfWeek)).forEach(schedule => {
         const startMinutes = scheduleTimeToMinutes(schedule.startTime);
         const endMinutes = scheduleTimeToMinutes(schedule.endTime);
         const duration = Number(schedule.slotDurationMinutes);

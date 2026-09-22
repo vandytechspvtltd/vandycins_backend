@@ -18,8 +18,8 @@ const database = {
             latitude: null,
             longitude: null,
             schedule: [
-                { dayOfWeek: 5, startTime: '09:00', endTime: '13:00', slotDurationMinutes: 30 },
-                { dayOfWeek: 5, startTime: '14:00', endTime: '17:00', slotDurationMinutes: 30 }
+                { daysOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '09:00', endTime: '13:00', slotDurationMinutes: 30 },
+                { daysOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '14:00', endTime: '17:00', slotDurationMinutes: 30 }
             ]
         },
         {
