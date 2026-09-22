@@ -141,28 +141,30 @@ function toResponse(item) {
     };
 }
 
-function createBooking({ patientId, doctorId, slotId, consultationType, symptoms }) {
+function createBooking({ patientId, doctorId, date, slotId, consultationType, symptoms }) {
     if (!CONSULTATION_TYPES.has(consultationType)) throw Object.assign(new Error('consultationType must be VIDEO, AUDIO, or CHAT.'), { statusCode: 400 });
     const doctor = doctorFor(doctorId);
     if (!doctor) throw Object.assign(new Error('Doctor not found.'), { statusCode: 404 });
-    const slot = database.doctorSlots.find(item => item.id === slotId && item.doctorId === doctorId);
-    if (!slot) throw Object.assign(new Error('Doctor slot not found.'), { statusCode: 404 });
-    const time24 = timeTo24Hour(slot.time);
-    if (!dateIsValid(slot.date) || !time24) throw Object.assign(new Error('Doctor slot has invalid date or time.'), { statusCode: 400 });
-    const currentSlot = findSlot(doctorId, slot.date, slotId);
+    const storedSlot = database.doctorSlots.find(item => item.id === slotId && item.doctorId === doctorId);
+    const slotDate = String(date || storedSlot?.date || String(slotId).match(/^[^_]+_(\d{4}-\d{2}-\d{2})_/)?.[1] || '').trim();
+    if (!dateIsValid(slotDate)) throw Object.assign(new Error('A valid slot date is required.'), { statusCode: 400 });
+    const currentSlot = findSlot(doctorId, slotDate, slotId);
     if (!currentSlot || !currentSlot.available) throw Object.assign(new Error('This doctor slot is no longer available.'), { statusCode: 409 });
+    const time24 = timeTo24Hour(currentSlot.time) || (currentSlot.time && /^\d{2}:\d{2}$/.test(currentSlot.time) ? currentSlot.time : null);
+    if (!dateIsValid(currentSlot.date) || !time24) throw Object.assign(new Error('Doctor slot has invalid date or time.'), { statusCode: 400 });
     const duplicate = database.appointments.find(item => item.doctorId === doctorId && item.slotId === slotId && !['CANCELLED', 'FAILED'].includes(item.status));
     if (duplicate) throw Object.assign(new Error('This doctor slot is already booked.'), { statusCode: 409 });
     const fee = consultationFee(doctor, consultationType);
     const appointment = {
         id: `apt_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
         patientId, doctorId, slotId, consultationType, symptoms: String(symptoms || '').trim() || null,
-        date: slot.date, time: slot.time, time24, dateTime: new Date(`${slot.date}T${time24}:00.000Z`).toISOString(),
+        date: currentSlot.date, time: currentSlot.time, time24, dateTime: new Date(`${currentSlot.date}T${time24}:00.000Z`).toISOString(),
         consultationFee: fee, platformFee: PLATFORM_FEE, totalAmount: fee + PLATFORM_FEE,
         status: 'PENDING_PAYMENT', createdAt: new Date().toISOString(), cancelledAt: null, cancellationReason: null, prescriptionId: null
     };
     database.appointments.push(appointment);
-    slot.bookedAppointmentId = appointment.id;
+    if (storedSlot && storedSlot.date === currentSlot.date) storedSlot.bookedAppointmentId = appointment.id;
+    else database.doctorSlots.push({ ...currentSlot, bookedAppointmentId: appointment.id });
     return appointment;
 }
 
