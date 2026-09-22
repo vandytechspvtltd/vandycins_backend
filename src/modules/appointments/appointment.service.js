@@ -49,13 +49,53 @@ function timeTo24Hour(time) {
     return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
+function scheduleTimeToMinutes(time) {
+    const match = String(time || '').trim().match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return null;
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (hours > 23 || minutes > 59) return null;
+    return hours * 60 + minutes;
+}
+
+function generatedSlotsForDoctorDate(doctor, date) {
+    if (!Array.isArray(doctor?.schedule)) return [];
+    const dayOfWeek = new Date(`${date}T00:00:00.000Z`).getUTCDay();
+    const slots = [];
+
+    doctor.schedule.filter(schedule => schedule.dayOfWeek === dayOfWeek).forEach(schedule => {
+        const startMinutes = scheduleTimeToMinutes(schedule.startTime);
+        const endMinutes = scheduleTimeToMinutes(schedule.endTime);
+        const duration = Number(schedule.slotDurationMinutes);
+        if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes || !Number.isInteger(duration) || duration <= 0) return;
+
+        for (let start = startMinutes; start + duration <= endMinutes; start += duration) {
+            const hour = Math.floor(start / 60);
+            const minute = start % 60;
+            const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+            slots.push({
+                id: `${doctor.id}_${date}_${time.replace(':', '')}`,
+                doctorId: doctor.id,
+                date,
+                time,
+                period: hour < 12 ? 'AM' : 'PM'
+            });
+        }
+    });
+
+    return slots;
+}
+
 function slotsForDoctorDate(doctorId, date) {
     const stored = database.doctorSlots.filter(slot => slot.doctorId === doctorId && slot.date === date);
     const doctor = doctorFor(doctorId);
     const configured = Array.isArray(doctor?.availability) ? doctor.availability
         .filter(slot => slot.date === date)
         .map(slot => normalizeSlot({ ...slot, doctorId }, doctorId, date)) : [];
-    const slots = [...stored, ...configured.filter(slot => !stored.some(item => item.id === slot.id))];
+    const generated = generatedSlotsForDoctorDate(doctor, date);
+    const slots = [...stored, ...configured, ...generated.filter(slot =>
+        !stored.some(item => item.id === slot.id) && !configured.some(item => item.id === slot.id)
+    )];
     return slots.map(slot => normalizeSlot(slot, doctorId, date)).filter(Boolean);
 }
 

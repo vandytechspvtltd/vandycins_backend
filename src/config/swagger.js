@@ -98,7 +98,7 @@ const swaggerDefinition = {
             },
             AppointmentSlot: {
                 type: 'object', properties: {
-                    id: { type: 'string' }, doctorId: { type: 'string' }, date: { type: 'string', format: 'date' }, time: { type: 'string' }, period: { type: 'string', enum: ['MORNING', 'AFTERNOON', 'EVENING'], nullable: true }, available: { type: 'boolean' }
+                    id: { type: 'string' }, doctorId: { type: 'string' }, date: { type: 'string', format: 'date' }, time: { type: 'string', example: '09:00' }, period: { type: 'string', enum: ['AM', 'PM'], nullable: true }, available: { type: 'boolean' }, bookedAppointmentId: { type: 'string', nullable: true }
                 }
             },
             Payment: {
@@ -121,7 +121,54 @@ const swaggerDefinition = {
         '/api/home': { get: { tags: ['Home'], summary: 'Fetch home data', description: 'Alias of the patient home dashboard endpoint.', security: [{ bearerAuth: [] }], responses: { 200: { $ref: '#/components/responses/Home' }, 401: { $ref: '#/components/responses/Unauthorized' }, 403: { $ref: '#/components/responses/Forbidden' }, 500: { $ref: '#/components/responses/ServerError' } } } },
         '/v1/doctors': { get: { tags: ['Doctors'], summary: 'List doctors', description: 'Lists doctors with optional text, specialty, location, rating, fee, experience, and online filters.', security: [{ bearerAuth: [] }], parameters: [{ $ref: '#/components/parameters/Search' }, { name: 'specialty', in: 'query', schema: { type: 'string', enum: ['general physician', 'cardiology', 'dermatology', 'pediatrics', 'neurology'] } }, { name: 'latitude', in: 'query', schema: { type: 'number', minimum: -90, maximum: 90 } }, { name: 'longitude', in: 'query', schema: { type: 'number', minimum: -180, maximum: 180 } }, { name: 'maxDistance', in: 'query', schema: { type: 'number', minimum: 0 } }, { name: 'minRating', in: 'query', schema: { type: 'number', minimum: 0, maximum: 5 } }, { name: 'maxFee', in: 'query', schema: { type: 'number', minimum: 0 } }, { name: 'minExperience', in: 'query', schema: { type: 'number', minimum: 0 } }, { name: 'onlineOnly', in: 'query', schema: { type: 'boolean', default: false } }, { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 } }, { name: 'offset', in: 'query', schema: { type: 'integer', minimum: 0, default: 0 } }], responses: { 200: { description: 'Doctor list' }, 400: { $ref: '#/components/responses/BadRequest' }, 401: { $ref: '#/components/responses/Unauthorized' } } } },
         '/v1/doctors/{doctorId}': { get: { tags: ['Doctors'], summary: 'Get doctor profile', security: [{ bearerAuth: [] }], parameters: [{ name: 'doctorId', in: 'path', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'Doctor profile', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/DoctorProfile' } } } } } }, 401: { $ref: '#/components/responses/Unauthorized' }, 404: { $ref: '#/components/responses/NotFound' } } } },
-        '/v1/doctors/{doctorId}/slots': { get: { tags: ['Doctors'], summary: 'Get doctor slots', description: 'Returns configured slots for the doctor and date, including unavailable booked slots.', security: [{ bearerAuth: [] }], parameters: [{ name: 'doctorId', in: 'path', required: true, schema: { type: 'string' } }, { name: 'date', in: 'query', required: true, schema: { type: 'string', format: 'date' } }], responses: { 200: { description: 'Doctor slots', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { doctorId: { type: 'string' }, date: { type: 'string', format: 'date' }, slots: { type: 'array', items: { $ref: '#/components/schemas/AppointmentSlot' } } } } } } } } }, 400: { $ref: '#/components/responses/BadRequest' }, 401: { $ref: '#/components/responses/Unauthorized' }, 404: { $ref: '#/components/responses/NotFound' } } } },
+        '/v1/doctors/{doctorId}/slots': {
+            get: {
+                tags: ['Doctors'],
+                summary: 'Get doctor slots',
+                description: 'Returns slots generated from the doctor working schedule for the requested date, including unavailable booked slots.',
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: 'doctorId', in: 'path', required: true, schema: { type: 'string' }, example: 'doc_101' },
+                    { name: 'date', in: 'query', required: true, schema: { type: 'string', format: 'date' }, example: '2026-10-02' }
+                ],
+                responses: {
+                    200: {
+                        description: 'Doctor slots',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    required: ['success', 'data'],
+                                    properties: {
+                                        success: { type: 'boolean', example: true },
+                                        data: {
+                                            type: 'object',
+                                            required: ['doctorId', 'date', 'slots'],
+                                            properties: {
+                                                doctorId: { type: 'string' },
+                                                date: { type: 'string', format: 'date' },
+                                                slots: { type: 'array', items: { $ref: '#/components/schemas/AppointmentSlot' } }
+                                            }
+                                        }
+                                    }
+                                },
+                                example: {
+                                    success: true,
+                                    data: {
+                                        doctorId: 'doc_101',
+                                        date: '2026-10-02',
+                                        slots: [{ id: 'doc_101_2026-10-02_0900', doctorId: 'doc_101', date: '2026-10-02', time: '09:00', period: 'AM', available: true, bookedAppointmentId: null }]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    400: { $ref: '#/components/responses/BadRequest' },
+                    401: { $ref: '#/components/responses/Unauthorized' },
+                    404: { $ref: '#/components/responses/NotFound' }
+                }
+            }
+        },
         '/v1/specialties': { get: { tags: ['Specialties'], summary: 'List specialties', description: 'Returns configured specialties and doctor counts.', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Specialties' }, 401: { $ref: '#/components/responses/Unauthorized' } } } },
         '/v1/specialities': { get: { tags: ['Specialties'], summary: 'List specialities', description: 'Alias using the patient app spelling.', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Specialities' }, 401: { $ref: '#/components/responses/Unauthorized' } } } },
         '/v1/health-services': { get: { tags: ['Health Services'], summary: 'List health services', description: 'Returns enabled and configured health services.', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Health services' }, 401: { $ref: '#/components/responses/Unauthorized' } } } },
