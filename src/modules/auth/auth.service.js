@@ -104,6 +104,12 @@ function getOrCreateUser(phone, role) {
     return user;
 }
 
+function doctorLoginAllowed(user) {
+    if (!user || user.role !== 'DOCTOR') return true;
+    const registration = database.doctorRegistrations.find(item => item.userId === user.id);
+    return !registration || (registration.status === 'APPROVED' && registration.isActive !== false);
+}
+
 function loginResponse(user) {
     const accessToken = createAccessToken(user);
     const refreshToken = createRefreshToken(user);
@@ -126,6 +132,7 @@ async function requestOtp(phoneInput, role) {
     if (!['DOCTOR', 'PATIENT'].includes(role)) return { error: [400, 'Role must be DOCTOR or PATIENT.'] };
     const user = getOrCreateUser(phone, role);
     if (!user) return { error: [404, `No ${role.toLowerCase()} account is registered with this mobile number.`] };
+    if (!doctorLoginAllowed(user)) return { error: [403, 'Doctor registration is not approved or active.'] };
     const key = `${phone}:${role}`;
     const existing = otpStore.get(key);
     if (existing && Date.now() - existing.lastSentAt < OTP_COOLDOWN_MS) {
@@ -152,6 +159,7 @@ function verifyOtp(phoneInput, otp, role) {
         database.users[userId] = user;
         console.log(`[AUTH] AUTO CREATED USER ON VERIFY phone=${phone} role=${role} id=${userId}`);
     }
+    if (!doctorLoginAllowed(user)) return { error: [403, 'Doctor registration is not approved or active.'] };
     const key = `${phone}:${role}`;
     const storedOtp = otpStore.get(key);
     if (!storedOtp) return { error: [401, 'OTP not found or expired. Please request a new OTP.'] };

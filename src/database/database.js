@@ -57,6 +57,7 @@ const database = {
         ]
     },
     users: {},
+    doctorRegistrations: [],
     refreshTokens: [],
     doctorSlots: [],
     appointments: [],

@@ -6,15 +6,9 @@ const swaggerUi = require('swagger-ui-express');
 const config = require('./config/env');
 const swaggerDocument = require('./config/swagger');
 
-const authRoutes = require('./modules/auth/auth.routes');
-const profileRoutes = require('./modules/profile/profile.routes');
-const orderRoutes = require('./modules/orders/order.routes');
-const homeRoutes = require('./modules/home/home.routes');
-const doctorRoutes = require('./modules/doctors/doctor.routes');
-const specialtyRoutes = require('./modules/specialties/specialty.routes');
-const appointmentRoutes = require('./modules/appointments/appointment.routes');
-const notificationRoutes = require('./modules/notifications/notification.routes');
-const paymentRoutes = require('./modules/payments/payment.routes');
+const patientRoutes = require('./modules/patient/routes');
+const doctorRoutes = require('./modules/doctor/doctor.routes');
+const adminRoutes = require('./modules/admin/admin.routes');
 
 const app = express();
 
@@ -54,17 +48,11 @@ const healthInfo = (req, res) => res.json({
 app.get('/health', healthInfo);
 app.get('/v1/health', healthInfo);
 
-app.use('/v1/auth', authRoutes);
-app.use('/v1/home', homeRoutes);
-app.use('/api/home', homeRoutes);
-app.use('/v1/doctors', doctorRoutes);
-app.use('/v1/appointments', appointmentRoutes);
-app.use('/v1/notifications', notificationRoutes);
-app.use('/v1/payments', paymentRoutes);
-app.use('/v1/specialties', specialtyRoutes);
-app.use('/v1/specialities', specialtyRoutes);
-app.use('/v1/profile', profileRoutes);
-app.use('/v1/orders', orderRoutes);
+app.use('/v1', patientRoutes);
+app.use('/v1/doctor', doctorRoutes);
+app.use('/v1/doctor-portal', doctorRoutes);
+app.use('/v1/admin', adminRoutes);
+app.use('/api/home', require('./modules/patient/home/home.routes'));
 
 app.listen(config.port, '0.0.0.0', () => {
     console.log('====================================================');
