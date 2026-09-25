@@ -1,4 +1,5 @@
 const database = require('../../../database/database');
+const config = require('../../../config/env');
 const profileService = require('../profile/profile.service');
 function value(...values) { return values.find(item => item !== undefined && item !== null && item !== '') ?? null; }
 function number(valueToParse) {
@@ -55,7 +56,7 @@ async function getHomeData(user) {
         id: item.id, name: item.name, avatar: value(item.avatar, item.profile_image), specialty: item.specialty,
         qualification: value(item.qualification, item.qualifications), experienceYears: number(value(item.experienceYears, item.experience_years)),
         rating: number(item.rating), reviewCount: number(value(item.reviewCount, item.review_count)) || 0,
-        consultationFee: number(value(item.consultationFee, item.consultation_fee)), isOnline: Boolean(value(item.isOnline, item.is_online)), isVerified: true,
+        consultationFee: number(value(item.consultationFee, item.consultation_fee)) ?? config.defaultConsultationFee, isOnline: Boolean(value(item.isOnline, item.is_online)), isVerified: true,
         clinicName: value(item.clinicName, item.clinic_name), clinicAddress: value(item.clinicAddress, item.clinic_address, item.location),
         distanceKm: distanceKm(latitude, longitude, item), registrationNumber: value(item.registrationNumber, item.registration_number), about: value(item.about, item.bio)
     })).sort((a, b) => (a.distanceKm === null ? 1 : b.distanceKm === null ? -1 : a.distanceKm - b.distanceKm)).slice(0, 3);

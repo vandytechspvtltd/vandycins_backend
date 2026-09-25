@@ -8,6 +8,7 @@ const database = {
             registration_number: 'MCI-48291',
             rating: 4.9,
             experience_years: 14,
+            consultation_fee: 650,
             consultation_fee: 500,
             is_online: true,
             is_verified: true,

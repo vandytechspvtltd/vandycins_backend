@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const database = require('../../../database/database');
+const config = require('../../../config/env');
 
 const PLATFORM_FEE = 49;
 const CONSULTATION_TYPES = new Set(['VIDEO', 'AUDIO', 'CHAT']);
@@ -14,8 +15,8 @@ function doctorFor(doctorId) {
 }
 
 function consultationFee(doctor, type) {
-    const fee = Number(doctor.fee ?? doctor.consultation_fee);
-    if (!Number.isFinite(fee) || fee < 0) throw new Error('Doctor consultation fee is not configured.');
+    const fee = Number(doctor.consultationFee ?? doctor.consultation_fee ?? doctor.fee);
+    if (!Number.isFinite(fee) || fee < 0) throw Object.assign(new Error('Doctor consultation fee is not configured.'), { statusCode: 422 });
     if (type === 'AUDIO') return Math.max(300, fee - 100);
     if (type === 'CHAT') return Math.max(250, fee - 200);
     return fee;

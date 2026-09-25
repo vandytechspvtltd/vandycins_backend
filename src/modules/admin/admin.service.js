@@ -51,10 +51,11 @@ function approveDoctor(id) {
     user.isActive = true;
     let doctor = database.doctors.find(item => item.id === registration.userId);
     if (!doctor) {
-        doctor = { id: registration.userId, name: registration.name, specialty: registration.specialization || 'General Physician', qualification: registration.qualification, experience_years: registration.experience, registration_number: registration.registrationNumber, clinic_name: registration.clinicName, clinic_address: registration.clinicAddress, about: registration.bio, rating: 0, review_count: 0, is_online: false, is_verified: true, is_active: true };
+        doctor = { id: registration.userId, name: registration.name, specialty: registration.specialization || 'General Physician', qualification: registration.qualification, experience_years: registration.experience, registration_number: registration.registrationNumber, clinic_name: registration.clinicName, clinic_address: registration.clinicAddress, about: registration.bio, consultation_fee: config.defaultConsultationFee, rating: 0, review_count: 0, is_online: false, is_verified: true, is_active: true };
         database.doctors.push(doctor);
     } else {
         Object.assign(doctor, { is_verified: true, is_active: true });
+        if (!Number.isFinite(Number(doctor.consultation_fee)) || Number(doctor.consultation_fee) < 0) doctor.consultation_fee = config.defaultConsultationFee;
     }
     return doctorDetails(registration);
 }

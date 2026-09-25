@@ -14,6 +14,7 @@ const config = {
     adminEmail: (process.env.ADMIN_EMAIL || '').trim().toLowerCase(),
     adminPassword: process.env.ADMIN_PASSWORD || '',
     adminPasswordHash: (process.env.ADMIN_PASSWORD_HASH || '').trim(),
+    defaultConsultationFee: Number(process.env.DEFAULT_CONSULTATION_FEE || 500),
     agoraTokenTtlSeconds: Math.max(
         300,
         Number(process.env.AGORA_TOKEN_TTL_SECONDS || 3600)
