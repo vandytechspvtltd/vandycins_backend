@@ -77,45 +77,43 @@ function login(emailInput, password) {
         item => item.email === email
     );
 
-    console.log('[DOCTOR LOGIN]', {
-        email,
-        found: !!registration,
-        hasPasswordHash: !!registration?.passwordHash,
-        passwordHashLength: registration?.passwordHash?.length,
-        status: registration?.status,
-        isActive: registration?.isActive
-    });
+    console.log('[DOCTOR LOGIN] Email:', email);
+    console.log('[DOCTOR LOGIN] Registration found:', !!registration);
 
     if (!registration) {
-        console.log('[DOCTOR LOGIN] Doctor not found');
         return {
-            error: [401, 'Invalid email or password.']
+            error: [401, 'Doctor account not found for this email.']
         };
     }
+
+    console.log(
+        '[DOCTOR LOGIN] Password hash exists:',
+        !!registration.passwordHash
+    );
 
     const passwordValid = verifyPassword(
         String(password || ''),
         registration.passwordHash
     );
 
-    console.log('[DOCTOR LOGIN] Password valid:', passwordValid);
+    console.log(
+        '[DOCTOR LOGIN] Password valid:',
+        passwordValid
+    );
 
     if (!passwordValid) {
-        console.log('[DOCTOR LOGIN] Password verification failed');
         return {
-            error: [401, 'Invalid email or password.']
+            error: [401, 'Password is incorrect.']
         };
     }
+
+    console.log('[DOCTOR LOGIN] Status:', registration.status);
+    console.log('[DOCTOR LOGIN] Active:', registration.isActive);
 
     if (
         registration.status !== 'APPROVED' ||
         registration.isActive === false
     ) {
-        console.log('[DOCTOR LOGIN] Doctor not approved/active', {
-            status: registration.status,
-            isActive: registration.isActive
-        });
-
         return {
             error: [
                 403,
@@ -127,8 +125,6 @@ function login(emailInput, password) {
     const user = database.users[registration.userId];
 
     if (!user) {
-        console.log('[DOCTOR LOGIN] User account not found');
-
         return {
             error: [403, 'Doctor account is unavailable.']
         };
