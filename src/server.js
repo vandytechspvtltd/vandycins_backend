@@ -54,6 +54,13 @@ app.use('/v1/doctor-portal', doctorRoutes);
 app.use('/v1/admin', adminRoutes);
 app.use('/api/home', require('./modules/patient/home/home.routes'));
 
+app.use((err, req, res, next) => {
+    if (err instanceof SyntaxError && err.status === 400 && err.type === 'entity.parse.failed') {
+        return res.status(400).json({ success: false, message: 'Request body contains invalid JSON.' });
+    }
+    return next(err);
+});
+
 app.listen(config.port, '0.0.0.0', () => {
     console.log('====================================================');
     console.log(`Telehealth API & Agora RTC Server running on :${config.port}`);

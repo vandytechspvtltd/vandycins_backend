@@ -4,6 +4,10 @@ const database = require('../../../database/database');
 const PLATFORM_FEE = 49;
 const CONSULTATION_TYPES = new Set(['VIDEO', 'AUDIO', 'CHAT']);
 const PAYMENT_METHODS = new Set(['UPI', 'CARD', 'NET_BANKING', 'WALLET']);
+const DEFAULT_SCHEDULE = [
+    { daysOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '09:00', endTime: '13:00', slotDurationMinutes: 30 },
+    { daysOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '14:00', endTime: '17:00', slotDurationMinutes: 30 }
+];
 
 function doctorFor(doctorId) {
     return database.doctors.find(doctor => doctor.id === doctorId && doctor.is_active !== false) || null;
@@ -59,14 +63,17 @@ function scheduleTimeToMinutes(time) {
 }
 
 function generatedSlotsForDoctorDate(doctor, date) {
-    if (!Array.isArray(doctor?.schedule)) return [];
+    if (!doctor) return [];
+    const schedule = Array.isArray(doctor.schedule) && doctor.schedule.length > 0
+        ? doctor.schedule
+        : DEFAULT_SCHEDULE;
     const dayOfWeek = new Date(`${date}T00:00:00.000Z`).getUTCDay();
     const slots = [];
 
-    doctor.schedule.filter(schedule => schedule.dayOfWeek === dayOfWeek || schedule.daysOfWeek?.includes(dayOfWeek)).forEach(schedule => {
-        const startMinutes = scheduleTimeToMinutes(schedule.startTime);
-        const endMinutes = scheduleTimeToMinutes(schedule.endTime);
-        const duration = Number(schedule.slotDurationMinutes);
+    schedule.filter(window => window.dayOfWeek === dayOfWeek || window.daysOfWeek?.includes(dayOfWeek)).forEach(window => {
+        const startMinutes = scheduleTimeToMinutes(window.startTime);
+        const endMinutes = scheduleTimeToMinutes(window.endTime);
+        const duration = Number(window.slotDurationMinutes);
         if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes || !Number.isInteger(duration) || duration <= 0) return;
 
         for (let start = startMinutes; start + duration <= endMinutes; start += duration) {
