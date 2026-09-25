@@ -70,19 +70,65 @@ function register(input) {
 	database.users[id] = { id, phone: mobile, email, role: 'DOCTOR', name: registration.name, status: 'PENDING', isActive: false, isProfileCompleted: true };
 	return { data: publicRegistration(registration) };
 }
-
 function login(emailInput, password) {
-	const email = clean(emailInput).toLowerCase();
-	const registration = database.doctorRegistrations.find(item => item.email === email);
-	if (!registration || !verifyPassword(password, registration.passwordHash)) return { error: [401, 'Invalid email or password.'] };
-	if (registration.status !== 'APPROVED' || registration.isActive === false) return { error: [403, 'Doctor registration is not approved or active.'] };
-	const user = database.users[registration.userId];
-	if (!user) return { error: [403, 'Doctor account is unavailable.'] };
-	user.status = 'APPROVED';
-	user.isActive = true;
-	return { data: { accessToken: authService.createAccessToken(user), user } };
-}
+    const email = clean(emailInput).toLowerCase();
 
+    const registration = database.doctorRegistrations.find(
+        item => item.email === email
+    );
+
+    if (!registration) {
+        return {
+            error: [401, 'Invalid email or password.']
+        };
+    }
+
+    const isPasswordValid = verifyPassword(
+        String(password || ''),
+        registration.passwordHash
+    );
+
+    if (!isPasswordValid) {
+        return {
+            error: [401, 'Invalid email or password.']
+        };
+    }
+
+    if (
+        registration.status !== 'APPROVED' ||
+        registration.isActive === false
+    ) {
+        return {
+            error: [
+                403,
+                'Doctor registration is not approved or active.'
+            ]
+        };
+    }
+
+    const user = database.users[registration.userId];
+
+    if (!user) {
+        return {
+            error: [403, 'Doctor account is unavailable.']
+        };
+    }
+
+    user.status = 'APPROVED';
+    user.isActive = true;
+
+    const accessToken = authService.createAccessToken(user);
+
+    const refreshToken = authService.createRefreshToken(user);
+
+    return {
+        data: {
+            accessToken,
+            refreshToken,
+            user
+        }
+    };
+}
 function getProfile(userId) {
 	const registration = findRegistration(userId);
 	if (!registration) return null;
