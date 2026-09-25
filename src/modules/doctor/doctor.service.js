@@ -77,18 +77,31 @@ function login(emailInput, password) {
         item => item.email === email
     );
 
+    console.log('[DOCTOR LOGIN]', {
+        email,
+        found: !!registration,
+        hasPasswordHash: !!registration?.passwordHash,
+        passwordHashLength: registration?.passwordHash?.length,
+        status: registration?.status,
+        isActive: registration?.isActive
+    });
+
     if (!registration) {
+        console.log('[DOCTOR LOGIN] Doctor not found');
         return {
             error: [401, 'Invalid email or password.']
         };
     }
 
-    const isPasswordValid = verifyPassword(
+    const passwordValid = verifyPassword(
         String(password || ''),
         registration.passwordHash
     );
 
-    if (!isPasswordValid) {
+    console.log('[DOCTOR LOGIN] Password valid:', passwordValid);
+
+    if (!passwordValid) {
+        console.log('[DOCTOR LOGIN] Password verification failed');
         return {
             error: [401, 'Invalid email or password.']
         };
@@ -98,6 +111,11 @@ function login(emailInput, password) {
         registration.status !== 'APPROVED' ||
         registration.isActive === false
     ) {
+        console.log('[DOCTOR LOGIN] Doctor not approved/active', {
+            status: registration.status,
+            isActive: registration.isActive
+        });
+
         return {
             error: [
                 403,
@@ -109,6 +127,8 @@ function login(emailInput, password) {
     const user = database.users[registration.userId];
 
     if (!user) {
+        console.log('[DOCTOR LOGIN] User account not found');
+
         return {
             error: [403, 'Doctor account is unavailable.']
         };
@@ -119,12 +139,9 @@ function login(emailInput, password) {
 
     const accessToken = authService.createAccessToken(user);
 
-    const refreshToken = authService.createRefreshToken(user);
-
     return {
         data: {
             accessToken,
-            refreshToken,
             user
         }
     };
