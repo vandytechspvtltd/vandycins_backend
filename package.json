@@ -1,15 +1,15 @@
 {
-    "name": "telehealth-agora-backend",
+    "name": "telehealth-webrtc-backend",
     "version": "1.0.0",
-    "description": "Production Node.js REST API & Agora RTC token service for Telehealth app",
+    "description": "Production Node.js REST API and WebRTC signaling service for Telehealth app",
     "main": "src/server.js",
     "scripts": {
         "start": "node server.js",
-        "dev": "node --watch server.js"
+        "dev": "node --watch server.js",
+        "test": "node --test"
     },
     "keywords": [
         "telehealth",
-        "agora",
         "nodejs",
         "express",
         "webrtc"
@@ -17,11 +17,14 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
-        "agora-token": "^2.0.6",
         "cors": "^2.8.5",
         "dotenv": "^16.4.7",
         "express": "^5.2.1",
         "jsonwebtoken": "^9.0.3",
+        "socket.io": "^4.8.4",
         "swagger-ui-express": "^5.0.1"
+    },
+    "devDependencies": {
+        "socket.io-client": "^4.8.4"
     }
 }

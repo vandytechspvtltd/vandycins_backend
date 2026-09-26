@@ -12,7 +12,19 @@ const swaggerDefinition = {
     tags: [
         { name: 'Patient', description: 'Patient mobile application APIs' },
         { name: 'Doctor', description: 'Doctor Web Portal APIs' },
-        { name: 'Admin', description: 'Administrator Web Panel APIs' }
+        { name: 'Admin', description: 'Administrator Web Panel APIs' },
+        {
+            name: 'Video Call',
+            description: [
+                'Appointment video call sessions and WebRTC ICE configuration.',
+                '',
+                'Socket.IO signaling uses the server root namespace. Authenticate the handshake with a valid access token in `auth.token`. Only PATIENT and active DOCTOR accounts may connect.',
+                'After `call:accept`, both participants send `call:join` with `{ callSessionId }`. Once both have joined, the server emits `call:joined` and the session becomes `ACTIVE`.',
+                'The patient sends `call:offer`; the doctor sends `call:answer`; either participant may send `call:ice-candidate`. The server relays these events only to the other joined participant.',
+                'The doctor may send `call:reject`; either participant may send `call:end`. The server emits `call:incoming`, `call:rejected`, `call:ended`, or `call:error` as applicable.',
+                'Call status transitions are `RINGING` to `ACCEPTED`, `REJECTED`, or `MISSED`; `ACCEPTED` to `ACTIVE` or `ENDED`; and `ACTIVE` to `ENDED`.'
+            ].join('\n')
+        }
     ],
     components: {
         securitySchemes: {
@@ -119,6 +131,48 @@ const swaggerDefinition = {
     paths: {
         '/health': { get: { tags: ['System'], summary: 'Check service health', description: 'Returns service and configuration availability flags.', responses: { 200: { description: 'Service health' } } } },
         '/v1/health': { get: { tags: ['System'], summary: 'Check service health', description: 'Returns service and configuration availability flags.', responses: { 200: { description: 'Service health' } } } },
+        '/v1/webrtc/ice-servers': { get: { tags: ['WebRTC'], summary: 'Get ICE server configuration', description: 'Returns STUN servers and short-lived TURN credentials for an authenticated caller.', security: [{ bearerAuth: [] }], responses: { 200: { description: 'ICE server configuration' }, 401: { $ref: '#/components/responses/Unauthorized' } } } },
+        '/v1/video-call/ice-servers': {
+            get: {
+                tags: ['Video Call'], summary: 'Get WebRTC ICE servers', security: [{ bearerAuth: [] }],
+                responses: { 200: { description: 'Configured STUN and TURN servers' }, 401: { $ref: '#/components/responses/Unauthorized' } }
+            }
+        },
+        '/v1/appointments/{appointmentId}/call/start': {
+            post: {
+                tags: ['Video Call'], summary: 'Start a call', security: [{ bearerAuth: [] }],
+                parameters: [{ name: 'appointmentId', in: 'path', required: true, schema: { type: 'string' } }],
+                responses: { 201: { description: 'Ringing call session created' }, 403: { $ref: '#/components/responses/Forbidden' }, 404: { $ref: '#/components/responses/NotFound' }, 409: { description: 'An active call already exists' }, 401: { $ref: '#/components/responses/Unauthorized' } }
+            }
+        },
+        '/v1/appointments/{appointmentId}/call/accept': {
+            post: {
+                tags: ['Video Call'], summary: 'Accept a call', security: [{ bearerAuth: [] }],
+                parameters: [{ name: 'appointmentId', in: 'path', required: true, schema: { type: 'string' } }],
+                responses: { 200: { description: 'Call accepted' }, 403: { $ref: '#/components/responses/Forbidden' }, 404: { $ref: '#/components/responses/NotFound' }, 409: { description: 'Invalid call status transition' }, 401: { $ref: '#/components/responses/Unauthorized' } }
+            }
+        },
+        '/v1/appointments/{appointmentId}/call/reject': {
+            post: {
+                tags: ['Video Call'], summary: 'Reject a call', security: [{ bearerAuth: [] }],
+                parameters: [{ name: 'appointmentId', in: 'path', required: true, schema: { type: 'string' } }],
+                responses: { 200: { description: 'Call rejected' }, 403: { $ref: '#/components/responses/Forbidden' }, 404: { $ref: '#/components/responses/NotFound' }, 409: { description: 'Invalid call status transition' }, 401: { $ref: '#/components/responses/Unauthorized' } }
+            }
+        },
+        '/v1/appointments/{appointmentId}/call/end': {
+            post: {
+                tags: ['Video Call'], summary: 'End a call', security: [{ bearerAuth: [] }],
+                parameters: [{ name: 'appointmentId', in: 'path', required: true, schema: { type: 'string' } }],
+                responses: { 200: { description: 'Call ended' }, 403: { $ref: '#/components/responses/Forbidden' }, 404: { $ref: '#/components/responses/NotFound' }, 409: { description: 'Invalid call status transition' }, 401: { $ref: '#/components/responses/Unauthorized' } }
+            }
+        },
+        '/v1/appointments/{appointmentId}/call': {
+            get: {
+                tags: ['Video Call'], summary: 'Get the appointment call session', security: [{ bearerAuth: [] }],
+                parameters: [{ name: 'appointmentId', in: 'path', required: true, schema: { type: 'string' } }],
+                responses: { 200: { description: 'Call session' }, 403: { $ref: '#/components/responses/Forbidden' }, 404: { $ref: '#/components/responses/NotFound' }, 401: { $ref: '#/components/responses/Unauthorized' } }
+            }
+        },
         '/v1/auth/send-otp': { post: { tags: ['Auth'], summary: 'Send OTP', description: 'Sends a four-digit OTP to a registered phone number.', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['phone', 'role'], properties: { phone: { type: 'string', example: '+919876543211' }, role: { type: 'string', enum: ['PATIENT', 'DOCTOR'] } } } } } }, responses: { 200: { description: 'OTP sent' }, 400: { $ref: '#/components/responses/BadRequest' }, 404: { $ref: '#/components/responses/NotFound' }, 429: { $ref: '#/components/responses/TooManyRequests' }, 500: { $ref: '#/components/responses/ServerError' } } } },
         '/v1/auth/verify-otp': { post: { tags: ['Auth'], summary: 'Verify OTP and issue tokens', description: 'Verifies the four-digit OTP and returns access and refresh tokens.', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['phone', 'otp', 'role'], properties: { phone: { type: 'string' }, otp: { type: 'string', pattern: '^\\d{4}$' }, role: { type: 'string', enum: ['PATIENT', 'DOCTOR'] } } } } } }, responses: { 200: { description: 'Authenticated user', content: { 'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } } } }, 400: { $ref: '#/components/responses/BadRequest' }, 401: { $ref: '#/components/responses/Unauthorized' }, 429: { $ref: '#/components/responses/TooManyRequests' }, 500: { $ref: '#/components/responses/ServerError' } } } },
         '/v1/auth/refresh': { post: { tags: ['Auth'], summary: 'Rotate refresh token', description: 'Validates and rotates a refresh token. The submitted token is revoked after a successful rotation.', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['refreshToken'], properties: { refreshToken: { type: 'string' } } } } } }, responses: { 200: { description: 'New access and refresh tokens', content: { 'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } } } }, 401: { description: 'Invalid, expired, or revoked refresh token', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' }, example: { success: false, message: 'Invalid or expired refresh token' } } } } } } },

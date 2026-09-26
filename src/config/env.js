@@ -4,8 +4,13 @@ dotenv.config();
 
 const config = {
     port: process.env.SERVER_PORT || 5000,
-    agoraAppId: (process.env.AGORA_APP_ID || '').trim(),
-    agoraAppCertificate: (process.env.AGORA_APP_CERTIFICATE || '').trim(),
+    webrtcStunUrls: (process.env.WEBRTC_STUN_URLS || 'stun:stun.l.google.com:19302').split(',').map(value => value.trim()).filter(Boolean),
+    webrtcTurnUrl: (process.env.WEBRTC_TURN_URL || '').trim(),
+    webrtcTurnUsername: (process.env.WEBRTC_TURN_USERNAME || '').trim(),
+    webrtcTurnCredential: (process.env.WEBRTC_TURN_CREDENTIAL || '').trim(),
+    webrtcTurnUrls: (process.env.WEBRTC_TURN_URLS || '').split(',').map(value => value.trim()).filter(Boolean),
+    turnSharedSecret: (process.env.TURN_SHARED_SECRET || '').trim(),
+    turnCredentialTtlSeconds: Math.max(60, Number(process.env.TURN_CREDENTIAL_TTL_SECONDS || 3600)),
     jwtSecret: (process.env.JWT_SECRET || '').trim(),
     jwtAccessSecret: (process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || '').trim(),
     jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || process.env.ACCESS_TOKEN_TTL || '15m',
@@ -15,10 +20,6 @@ const config = {
     adminPassword: process.env.ADMIN_PASSWORD || '',
     adminPasswordHash: (process.env.ADMIN_PASSWORD_HASH || '').trim(),
     defaultConsultationFee: Number(process.env.DEFAULT_CONSULTATION_FEE || 500),
-    agoraTokenTtlSeconds: Math.max(
-        300,
-        Number(process.env.AGORA_TOKEN_TTL_SECONDS || 3600)
-    ),
     devOtpBypass: String(process.env.DEV_OTP_BYPASS || 'false')
         .trim()
         .toLowerCase() === 'true',
@@ -28,11 +29,9 @@ const config = {
 };
 
 if (process.env.NODE_ENV === 'production') {
-    if (!config.agoraAppId) {
-        throw new Error('AGORA_APP_ID is required in production.');
-    }
-    if (!config.agoraAppCertificate) {
-        throw new Error('AGORA_APP_CERTIFICATE is required in production.');
+    const turnConfigured = config.webrtcTurnUrl || (config.webrtcTurnUrls.length && config.turnSharedSecret);
+    if (!turnConfigured) {
+        throw new Error('Configure WEBRTC_TURN_URL or WEBRTC_TURN_URLS with TURN_SHARED_SECRET in production.');
     }
     if (!config.jwtAccessSecret || config.jwtAccessSecret.length < 32) {
         throw new Error('JWT_ACCESS_SECRET must be at least 32 characters.');

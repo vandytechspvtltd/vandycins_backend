@@ -1,6 +1,6 @@
-# Vandycins Video & REST Backend (Node.js)
+# Vandycins WebRTC & REST Backend (Node.js)
 
-Production-ready Node.js & Express REST API server with Agora RTC token service for the Telehealth Android application.
+Node.js REST API and authenticated WebRTC signaling service for the Telehealth Android application and doctor browser.
 
 ## Prerequisites
 - Node.js (v18 or higher)
@@ -19,12 +19,13 @@ Production-ready Node.js & Express REST API server with Agora RTC token service 
    ```
 
 3. **Configure Environment Variables**:
-   Copy `.env` or edit the existing one:
+   Configure `.env` or the deployment environment:
    ```bash
-   PORT=8080
-   AGORA_APP_ID=0e4c1acfe9524ee395e774265f013175
-   # If your Agora project has an App Certificate enabled in Agora Console:
-   AGORA_APP_CERTIFICATE=
+   SERVER_PORT=5000
+   WEBRTC_STUN_URLS=stun:stun.l.google.com:19302
+   WEBRTC_TURN_URLS=turn:turn.example.com:3478,turns:turn.example.com:5349
+   TURN_SHARED_SECRET=<coturn static-auth-secret>
+   TURN_CREDENTIAL_TTL_SECONDS=3600
    ```
 
 4. **Start the Server**:
@@ -39,7 +40,7 @@ Production-ready Node.js & Express REST API server with Agora RTC token service 
 5. **Verify Server Health**:
    Open in your browser or curl:
    ```bash
-   curl http://localhost:8080/health
+   curl http://localhost:5000/health
    ```
 
 ---
@@ -57,9 +58,7 @@ All endpoints are mapped to `/v1/`:
 | `GET` | `/v1/queue/live` | Real-time queue status, token, wait time |
 | `GET` | `/v1/doctors` | List of doctors with online status & ratings |
 | `GET` | `/v1/doctors/:id` | Doctor profile by ID |
-| `POST` | `/v1/consultations/:id/join` | Generates Agora RTC channel, UID, & Token |
-| `POST` | `/v1/consultations/:id/renew-token` | Renews expired Agora RTC token |
-| `POST` | `/v1/consultations/end` | Closes consultation session |
+| `GET` | `/v1/webrtc/ice-servers` | Returns STUN servers and short-lived TURN credentials |
 | `GET` | `/v1/prescriptions/latest` | Latest E-Prescription with medicine breakdown |
 | `GET` | `/v1/prescriptions/:id` | Prescription by ID |
 | `GET` | `/v1/pharmacy/medicines` | Catalog of medicines with search & filter |
@@ -68,9 +67,17 @@ All endpoints are mapped to `/v1/`:
 
 ---
 
+## WebRTC Calls
+
+The authenticated endpoint `GET /v1/webrtc/ice-servers` returns the ICE server list for `RTCPeerConnection`. TURN credentials are short-lived and generated with the coturn REST API shared-secret scheme. Configure the same secret as coturn's `static-auth-secret`; production startup requires at least one TURN URL and the secret.
+
+Connect a Socket.IO client to the backend with the access token in `auth.token`. Join with `webrtc:join` and `{ appointmentId }`. The backend relays `webrtc:offer` and `webrtc:answer` messages containing `{ appointmentId, description }`, and `webrtc:ice-candidate` messages containing `{ appointmentId, candidate }`. Listen for `webrtc:peer-joined` and `webrtc:peer-left`; send `webrtc:leave` when ending the call. Only the paid, confirmed appointment's patient and active doctor can join. Media flows peer-to-peer when possible and through TURN when direct ICE fails; the backend relays signaling only.
+
+Both clients must implement the matching WebRTC APIs and Socket.IO protocol. The backend does not carry media. Its current appointment store is in memory, so deploy a shared persistent store and a Socket.IO adapter before running multiple backend instances.
+
 ## Deploying to Production
 
 You can deploy this server to any cloud provider:
-- **Google Cloud Run**: `gcloud run deploy telehealth-api --source . --port 8080`
+- **Google Cloud Run**: `gcloud run deploy telehealth-api --source . --port 5000`
 - **Render / Railway / Heroku**: Connect repository and set start command to `npm start`
 - **AWS / DigitalOcean / VPS**: Run with PM2 (`pm2 start server.js --name telehealth-api`)

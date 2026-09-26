@@ -3,6 +3,24 @@ const jwt = require('jsonwebtoken');
 const config = require('../config/env');
 const database = require('../database/database');
 
+function authenticateToken(accessToken) {
+    if (!config.jwtAccessSecret) throw new Error('Authentication service is not configured.');
+    const payload = jwt.verify(accessToken, config.jwtAccessSecret);
+    let user = database.users[payload.sub];
+    if (!user) {
+        user = {
+            id: payload.sub,
+            phone: payload.phone || '',
+            role: payload.role || 'PATIENT',
+            name: '',
+            isProfileCompleted: false
+        };
+        database.users[payload.sub] = user;
+    }
+    if (user.role !== payload.role) throw new Error('Invalid authentication role.');
+    return user;
+}
+
 function authenticate(req, res, next) {
 
     try {
@@ -97,5 +115,7 @@ function authenticate(req, res, next) {
         });
     }
 }
+
+authenticate.authenticateToken = authenticateToken;
 
 module.exports = authenticate;
