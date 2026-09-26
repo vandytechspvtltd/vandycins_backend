@@ -27,15 +27,26 @@ const config = {
         .trim()
         .toLowerCase()
 };
-
 if (process.env.NODE_ENV === 'production') {
-    const turnConfigured = config.webrtcTurnUrl || (config.webrtcTurnUrls.length && config.turnSharedSecret);
+
+    const turnConfigured =
+        config.webrtcTurnUrl ||
+        (
+            config.webrtcTurnUrls.length > 0 &&
+            config.webrtcTurnUsername &&
+            config.webrtcTurnCredential
+        );
+
     if (!turnConfigured) {
-        throw new Error('Configure WEBRTC_TURN_URL or WEBRTC_TURN_URLS with TURN_SHARED_SECRET in production.');
+        throw new Error(
+            'Configure WEBRTC_TURN_URL or WEBRTC_TURN_URLS with WEBRTC_TURN_USERNAME and WEBRTC_TURN_CREDENTIAL.'
+        );
     }
+
     if (!config.jwtAccessSecret || config.jwtAccessSecret.length < 32) {
         throw new Error('JWT_ACCESS_SECRET must be at least 32 characters.');
     }
+
     if (!config.jwtRefreshSecret || config.jwtRefreshSecret.length < 32) {
         throw new Error('JWT_REFRESH_SECRET must be at least 32 characters.');
     }

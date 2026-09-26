@@ -159,15 +159,29 @@ function markMissed(callSessionId) {
 
 function iceServerConfiguration() {
     const iceServers = [];
-    if (config.webrtcStunUrls.length) iceServers.push({ urls: config.webrtcStunUrls });
-    if (config.webrtcTurnUrl) {
-        const turnServer = { urls: config.webrtcTurnUrl };
-        if (config.webrtcTurnUsername && config.webrtcTurnCredential) {
-            turnServer.username = config.webrtcTurnUsername;
-            turnServer.credential = config.webrtcTurnCredential;
-        }
-        iceServers.push(turnServer);
+
+    if (config.webrtcStunUrls.length) {
+        iceServers.push({
+            urls: config.webrtcStunUrls
+        });
     }
+
+    const turnUrls = config.webrtcTurnUrls.length
+        ? config.webrtcTurnUrls
+        : (config.webrtcTurnUrl ? [config.webrtcTurnUrl] : []);
+
+    if (
+        turnUrls.length &&
+        config.webrtcTurnUsername &&
+        config.webrtcTurnCredential
+    ) {
+        iceServers.push({
+            urls: turnUrls,
+            username: config.webrtcTurnUsername,
+            credential: config.webrtcTurnCredential
+        });
+    }
+
     return { iceServers };
 }
 
