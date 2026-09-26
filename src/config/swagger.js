@@ -12,6 +12,7 @@ const swaggerDefinition = {
     tags: [
         { name: 'Patient', description: 'Patient mobile application APIs' },
         { name: 'Doctor', description: 'Doctor Web Portal APIs' },
+        { name: 'Doctor Portal', description: 'Doctor registration, login, and profile APIs' },
         { name: 'Admin', description: 'Administrator Web Panel APIs' },
         {
             name: 'Video Call',
@@ -245,7 +246,7 @@ const swaggerDefinition = {
         '/v1/payments/webhook': { post: { tags: ['Appointments'], summary: 'Process dummy payment webhook', description: 'Processes the dummy payment success payload without provider configuration or a signature header.', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['paymentId', 'status'], properties: { paymentId: { type: 'string', example: 'pay_apt_...' }, status: { type: 'string', enum: ['SUCCESS', 'FAILED'], example: 'SUCCESS' }, transactionReference: { type: 'string', nullable: true, example: 'UPI' } } } } } }, responses: { 200: { description: 'Dummy payment processed' }, 400: { $ref: '#/components/responses/BadRequest' }, 404: { $ref: '#/components/responses/NotFound' }, 409: { $ref: '#/components/responses/Conflict' } } } }
         , '/v1/doctor-portal/register': {
             post: {
-                tags: ['Doctor Portal'], summary: 'Register doctor', description: 'Creates a doctor registration with PENDING status for administrator review.',
+                tags: ['Doctor Portal'], summary: 'Register doctor', description: 'Public endpoint; no bearer token is required. Creates a doctor registration with PENDING status for administrator review.',
                 requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['name', 'email', 'mobile', 'password'], properties: { name: { type: 'string' }, email: { type: 'string', format: 'email' }, mobile: { type: 'string' }, password: { type: 'string', format: 'password', minLength: 8 }, specialization: { type: 'string' }, qualification: { type: 'string' }, experience: { type: 'number', minimum: 0 }, registrationNumber: { type: 'string' }, clinicName: { type: 'string' }, clinicAddress: { type: 'string' }, bio: { type: 'string' } } } } } },
                 responses: { 201: { description: 'Registration submitted', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, message: { type: 'string' }, data: { $ref: '#/components/schemas/DoctorRegistration' } } } } } }, 400: { $ref: '#/components/responses/BadRequest' } }
             }
