@@ -19,6 +19,7 @@ const adminRoutes = require('./modules/admin/admin.routes');
 const app = express();
 const server = http.createServer(app);
 const io = new SocketServer(server, { cors: { origin: true } });
+const authRoutes = require('./modules/auth/auth.routes');
 app.set('io', io);
 
 app.use(cors());
@@ -49,15 +50,21 @@ const healthInfo = (req, res) => res.json({
     service: 'Vandycins Backend API',
     version: '2.0.0',
     webrtcSignalingAvailable: true,
-    turnConfigured: Boolean(config.webrtcTurnUrl || (config.webrtcTurnUrls.length && config.turnSharedSecret)),
+    turnConfigured: Boolean(
+    config.webrtcTurnUrls.length &&
+    config.webrtcTurnUsername &&
+    config.webrtcTurnCredential
+    ),
     authenticationConfigured: Boolean(jwt && config.jwtAccessSecret && config.jwtRefreshSecret)
 });
 
 app.get('/health', healthInfo);
 app.get('/v1/health', healthInfo);
+app.use('/v1/auth', authRoutes);
 
 app.use('/v1', videoCallRoutes);
 app.use('/v1', patientRoutes);
+
 app.use('/v1/doctor', doctorRoutes);
 app.use('/v1/doctor-portal', doctorRoutes);
 app.use('/v1/admin', adminRoutes);
@@ -80,7 +87,11 @@ app.use((err, req, res, next) => {
 server.listen(config.port, '0.0.0.0', () => {
     console.log('====================================================');
     console.log(`Telehealth API & WebRTC signaling server running on :${config.port}`);
-    console.log(`TURN configured: ${Boolean(config.webrtcTurnUrl || (config.webrtcTurnUrls.length && config.turnSharedSecret))}`);
+    console.log(`TURN configured: ${Boolean(
+    config.webrtcTurnUrls.length &&
+    config.webrtcTurnUsername &&
+    config.webrtcTurnCredential
+)}`);
     console.log(`Base URL: http://localhost:${config.port}/v1/`);
     console.log(`Health Check: http://localhost:${config.port}/health`);
     console.log(`Swagger docs available at: http://localhost:${config.port}/api-docs`);
