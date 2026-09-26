@@ -42,9 +42,6 @@ test('WebRTC credentials and appointment signaling are authenticated', async () 
         jwtAccessSecret: config.jwtAccessSecret,
         webrtcStunUrls: config.webrtcStunUrls,
         webrtcTurnUrls: config.webrtcTurnUrls,
-        webrtcTurnUrl: config.webrtcTurnUrl,
-        webrtcTurnUsername: config.webrtcTurnUsername,
-        webrtcTurnCredential: config.webrtcTurnCredential,
         turnSharedSecret: config.turnSharedSecret,
         turnCredentialTtlSeconds: config.turnCredentialTtlSeconds
     };
@@ -73,19 +70,6 @@ test('WebRTC credentials and appointment signaling are authenticated', async () 
         assert.equal(turn.username, `${now + 600}:${ids.patient}`);
         assert.equal(turn.credential, crypto.createHmac('sha1', config.turnSharedSecret).update(turn.username).digest('base64'));
 
-        config.turnSharedSecret = '';
-        config.webrtcTurnUsername = 'static-turn-user';
-        config.webrtcTurnCredential = 'static-turn-credential';
-        const staticIce = webrtcService.iceServerConfiguration(ids.patient, now);
-        assert.equal(staticIce.expiresAt, null);
-        assert.equal(staticIce.turnConfigured, true);
-        assert.deepEqual(staticIce.iceServers[1], {
-            urls: config.webrtcTurnUrls,
-            username: 'static-turn-user',
-            credential: 'static-turn-credential'
-        });
-
-        config.turnSharedSecret = 'test-turn-shared-secret';
         database.users[ids.patient] = { id: ids.patient, role: 'PATIENT' };
         database.users[ids.doctor] = { id: ids.doctor, role: 'DOCTOR', status: 'APPROVED', isActive: true };
         database.users[ids.outsider] = { id: ids.outsider, role: 'PATIENT' };

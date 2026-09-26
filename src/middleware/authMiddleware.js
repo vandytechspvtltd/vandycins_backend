@@ -3,20 +3,6 @@ const jwt = require('jsonwebtoken');
 const config = require('../config/env');
 const database = require('../database/database');
 
-function normalizeUserRecord(user, payload) {
-    if (!user) return null;
-    const registration = database.doctorRegistrations.find(item => item.userId === user.id);
-    if (registration) {
-        user.status = registration.status || user.status || 'PENDING';
-        user.isActive = registration.isActive !== false;
-        user.email = registration.email || user.email || null;
-        user.phone = registration.mobile || user.phone || '';
-        user.name = registration.name || user.name || '';
-    }
-    if (payload && user.role !== payload.role) throw new Error('Invalid authentication role.');
-    return user;
-}
-
 function authenticateToken(accessToken) {
     if (!config.jwtAccessSecret) throw new Error('Authentication service is not configured.');
     const payload = jwt.verify(accessToken, config.jwtAccessSecret);
@@ -31,7 +17,8 @@ function authenticateToken(accessToken) {
         };
         database.users[payload.sub] = user;
     }
-    return normalizeUserRecord(user, payload);
+    if (user.role !== payload.role) throw new Error('Invalid authentication role.');
+    return user;
 }
 
 function authenticate(req, res, next) {
@@ -90,8 +77,6 @@ function authenticate(req, res, next) {
             };
             database.users[payload.sub] = user;
         }
-
-        user = normalizeUserRecord(user, payload);
 
         console.log('✅ User found');
         console.log('Database user ID:', user.id);

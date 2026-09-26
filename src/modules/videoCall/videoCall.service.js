@@ -105,13 +105,6 @@ function acceptCall(user, appointmentId) {
     return transition(session, 'ACCEPTED');
 }
 
-function acceptCallSession(user, callSessionId) {
-    const session = sessionForSocket(user, callSessionId);
-    const appointment = appointmentById(session.appointmentId);
-    assertAppointmentParticipant(appointment, user, 'DOCTOR');
-    return transition(session, 'ACCEPTED');
-}
-
 function rejectCall(user, appointmentId) {
     const appointment = appointmentById(appointmentId);
     assertAppointmentParticipant(appointment, user, 'DOCTOR');
@@ -202,7 +195,6 @@ module.exports = {
     callError,
     startCall,
     acceptCall,
-    acceptCallSession,
     rejectCall,
     endCall,
     getCall,

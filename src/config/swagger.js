@@ -110,7 +110,7 @@ const swaggerDefinition = {
             },
             PortalAuthResponse: {
                 type: 'object', properties: {
-                    success: { type: 'boolean' }, data: { type: 'object', properties: { accessToken: { type: 'string' }, refreshToken: { type: 'string' }, user: { $ref: '#/components/schemas/User' } } }, access_token: { type: 'string' }, refresh_token: { type: 'string' }
+                    success: { type: 'boolean' }, data: { type: 'object', properties: { accessToken: { type: 'string' }, user: { $ref: '#/components/schemas/User' } } }, access_token: { type: 'string' }
                 }
             },
             DoctorRegistration: {
@@ -122,16 +122,6 @@ const swaggerDefinition = {
                 allOf: [{ $ref: '#/components/schemas/DoctorRegistration' }],
                 properties: { isActive: { type: 'boolean' }, clinicName: { type: 'string', nullable: true }, clinicAddress: { type: 'string', nullable: true }, bio: { type: 'string', nullable: true } }
             },
-            DoctorPortalAppointment: {
-                type: 'object', properties: {
-                    id: { type: 'string' }, patientId: { type: 'string' }, patientName: { type: 'string' }, doctorId: { type: 'string' }, date: { type: 'string', nullable: true }, time: { type: 'string', nullable: true }, type: { type: 'string' }, consultationType: { type: 'string' }, status: { type: 'string', enum: ['PENDING_PAYMENT', 'UPCOMING', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'REJECTED'] }
-                }
-            },
-            DoctorPortalPatient: {
-                type: 'object', properties: {
-                    id: { type: 'string' }, name: { type: 'string' }, patientName: { type: 'string' }, email: { type: 'string', format: 'email', nullable: true }, mobile: { type: 'string', nullable: true }, phone: { type: 'string', nullable: true }, status: { type: 'string' }
-                }
-            },
             AdminPatient: {
                 type: 'object', properties: {
                     id: { type: 'string' }, name: { type: 'string', nullable: true }, email: { type: 'string', nullable: true }, mobile: { type: 'string', nullable: true }, role: { type: 'string', enum: ['PATIENT'] }, profile: { $ref: '#/components/schemas/Profile' }, isProfileCompleted: { type: 'boolean' }
@@ -142,32 +132,11 @@ const swaggerDefinition = {
     paths: {
         '/health': { get: { tags: ['System'], summary: 'Check service health', description: 'Returns service and configuration availability flags.', responses: { 200: { description: 'Service health' } } } },
         '/v1/health': { get: { tags: ['System'], summary: 'Check service health', description: 'Returns service and configuration availability flags.', responses: { 200: { description: 'Service health' } } } },
-        '/v1/webrtc/ice-servers': { get: { tags: ['WebRTC'], summary: 'Get ICE server configuration', description: 'Returns STUN servers and TURN credentials for an authenticated caller. TURN credentials are short-lived when a shared secret is configured; otherwise configured static TURN credentials are returned.', security: [{ bearerAuth: [] }], responses: { 200: { description: 'ICE server configuration' }, 401: { $ref: '#/components/responses/Unauthorized' } } } },
+        '/v1/webrtc/ice-servers': { get: { tags: ['WebRTC'], summary: 'Get ICE server configuration', description: 'Returns STUN servers and short-lived TURN credentials for an authenticated caller.', security: [{ bearerAuth: [] }], responses: { 200: { description: 'ICE server configuration' }, 401: { $ref: '#/components/responses/Unauthorized' } } } },
         '/v1/video-call/ice-servers': {
             get: {
                 tags: ['Video Call'], summary: 'Get WebRTC ICE servers', security: [{ bearerAuth: [] }],
                 responses: { 200: { description: 'Configured STUN and TURN servers' }, 401: { $ref: '#/components/responses/Unauthorized' } }
-            }
-        },
-        '/v1/video-call/{callSessionId}/accept': {
-            post: {
-                tags: ['Video Call'], summary: 'Accept a call session', description: 'Accepts a ringing call by session ID. Only the assigned doctor can accept it.', security: [{ bearerAuth: [] }],
-                parameters: [{ name: 'callSessionId', in: 'path', required: true, schema: { type: 'string' } }],
-                responses: { 200: { description: 'Call accepted' }, 400: { $ref: '#/components/responses/BadRequest' }, 401: { $ref: '#/components/responses/Unauthorized' }, 403: { $ref: '#/components/responses/Forbidden' }, 404: { $ref: '#/components/responses/NotFound' }, 409: { $ref: '#/components/responses/Conflict' } }
-            }
-        },
-        '/v1/video-call/{callSessionId}/reject': {
-            post: {
-                tags: ['Video Call'], summary: 'Reject a call session', description: 'Rejects a ringing call by session ID. Only the assigned doctor can reject it.', security: [{ bearerAuth: [] }],
-                parameters: [{ name: 'callSessionId', in: 'path', required: true, schema: { type: 'string' } }],
-                responses: { 200: { description: 'Call rejected' }, 400: { $ref: '#/components/responses/BadRequest' }, 401: { $ref: '#/components/responses/Unauthorized' }, 403: { $ref: '#/components/responses/Forbidden' }, 404: { $ref: '#/components/responses/NotFound' }, 409: { $ref: '#/components/responses/Conflict' } }
-            }
-        },
-        '/v1/video-call/{callSessionId}/end': {
-            post: {
-                tags: ['Video Call'], summary: 'End a call session', description: 'Ends a call by session ID. Only a call participant may end it.', security: [{ bearerAuth: [] }],
-                parameters: [{ name: 'callSessionId', in: 'path', required: true, schema: { type: 'string' } }],
-                responses: { 200: { description: 'Call ended' }, 400: { $ref: '#/components/responses/BadRequest' }, 401: { $ref: '#/components/responses/Unauthorized' }, 403: { $ref: '#/components/responses/Forbidden' }, 404: { $ref: '#/components/responses/NotFound' }, 409: { $ref: '#/components/responses/Conflict' } }
             }
         },
         '/v1/appointments/{appointmentId}/call/start': {
@@ -288,41 +257,9 @@ const swaggerDefinition = {
                 responses: { 200: { description: 'Doctor authenticated', content: { 'application/json': { schema: { $ref: '#/components/schemas/PortalAuthResponse' } } } }, 401: { $ref: '#/components/responses/Unauthorized' }, 403: { $ref: '#/components/responses/Forbidden' } }
             }
         },
-        '/v1/doctor-portal/logout': {
-            post: {
-                tags: ['Doctor Portal'], summary: 'Log out doctor', description: 'Revokes the supplied refresh token.',
-                requestBody: { required: false, content: { 'application/json': { schema: { type: 'object', properties: { refreshToken: { type: 'string' }, refresh_token: { type: 'string' } } } } } },
-                responses: { 200: { description: 'Logged out' }, 400: { $ref: '#/components/responses/BadRequest' } }
-            }
-        },
-        '/v1/doctor-portal/refresh': {
-            post: {
-                tags: ['Doctor Portal'], summary: 'Refresh doctor access token', description: 'Rotates a valid refresh token and returns new tokens.',
-                requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { refreshToken: { type: 'string' }, refresh_token: { type: 'string' } }, anyOf: [{ required: ['refreshToken'] }, { required: ['refresh_token'] }] } } } },
-                responses: { 200: { description: 'New access and refresh tokens', content: { 'application/json': { schema: { $ref: '#/components/schemas/PortalAuthResponse' } } } }, 401: { $ref: '#/components/responses/Unauthorized' } }
-            }
-        },
         '/v1/doctor-portal/profile': {
-            get: { tags: ['Doctor Portal'], summary: 'Get own doctor profile', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Doctor profile', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { doctor: { $ref: '#/components/schemas/DoctorPortalProfile' } } } } } } } }, 401: { $ref: '#/components/responses/Unauthorized' }, 403: { $ref: '#/components/responses/Forbidden' }, 404: { $ref: '#/components/responses/NotFound' } } },
-            patch: { tags: ['Doctor Portal'], summary: 'Update own doctor profile', security: [{ bearerAuth: [] }], requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/DoctorPortalProfile' } } } }, responses: { 200: { description: 'Profile updated', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { doctor: { $ref: '#/components/schemas/DoctorPortalProfile' } } } } } } } }, 400: { $ref: '#/components/responses/BadRequest' }, 401: { $ref: '#/components/responses/Unauthorized' }, 403: { $ref: '#/components/responses/Forbidden' }, 404: { $ref: '#/components/responses/NotFound' } } }
-        },
-        '/v1/doctor-portal/status': {
-            get: { tags: ['Doctor Portal'], summary: 'Get own account status', description: 'Returns the authenticated doctor registration status and active flag.', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Doctor status', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { doctorId: { type: 'string' }, status: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'] }, active: { type: 'boolean' } } } } } } } }, 401: { $ref: '#/components/responses/Unauthorized' }, 403: { $ref: '#/components/responses/Forbidden' }, 404: { $ref: '#/components/responses/NotFound' } } }
-        },
-        '/v1/doctor-portal/appointments': {
-            get: { tags: ['Doctor Portal'], summary: 'List own appointments', description: 'Returns appointments assigned to the authenticated doctor.', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Doctor appointments', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { $ref: '#/components/schemas/DoctorPortalAppointment' } } } } } } }, 401: { $ref: '#/components/responses/Unauthorized' }, 403: { $ref: '#/components/responses/Forbidden' } } }
-        },
-        '/v1/doctor-portal/appointments/{appointmentId}': {
-            get: { tags: ['Doctor Portal'], summary: 'Get appointment details', security: [{ bearerAuth: [] }], parameters: [{ name: 'appointmentId', in: 'path', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'Appointment details', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/DoctorPortalAppointment' } } } } } }, 401: { $ref: '#/components/responses/Unauthorized' }, 403: { $ref: '#/components/responses/Forbidden' }, 404: { $ref: '#/components/responses/NotFound' } } }
-        },
-        '/v1/doctor-portal/appointments/{appointmentId}/status': {
-            patch: { tags: ['Doctor Portal'], summary: 'Update appointment status', description: 'Updates the status of an appointment assigned to the authenticated doctor. Valid transitions are PENDING_PAYMENT to CONFIRMED and UPCOMING or CONFIRMED to COMPLETED.', security: [{ bearerAuth: [] }], parameters: [{ name: 'appointmentId', in: 'path', required: true, schema: { type: 'string' } }], requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['status'], properties: { status: { type: 'string', enum: ['CONFIRMED', 'COMPLETED'] } } } } } }, responses: { 200: { description: 'Appointment status updated', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, message: { type: 'string' }, data: { $ref: '#/components/schemas/DoctorPortalAppointment' } } } } } }, 400: { $ref: '#/components/responses/BadRequest' }, 401: { $ref: '#/components/responses/Unauthorized' }, 403: { $ref: '#/components/responses/Forbidden' }, 404: { $ref: '#/components/responses/NotFound' }, 409: { $ref: '#/components/responses/Conflict' } } }
-        },
-        '/v1/doctor-portal/patients': {
-            get: { tags: ['Doctor Portal'], summary: 'List own patients', description: 'Returns patients with appointments assigned to the authenticated doctor.', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Doctor patients', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { $ref: '#/components/schemas/DoctorPortalPatient' } } } } } } }, 401: { $ref: '#/components/responses/Unauthorized' }, 403: { $ref: '#/components/responses/Forbidden' } } }
-        },
-        '/v1/doctor-portal/patients/{patientId}': {
-            get: { tags: ['Doctor Portal'], summary: 'Get patient details', description: 'Returns a patient only when they have an appointment assigned to the authenticated doctor.', security: [{ bearerAuth: [] }], parameters: [{ name: 'patientId', in: 'path', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'Patient details', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/DoctorPortalPatient' } } } } } }, 401: { $ref: '#/components/responses/Unauthorized' }, 403: { $ref: '#/components/responses/Forbidden' }, 404: { $ref: '#/components/responses/NotFound' } } }
+            get: { tags: ['Doctor Portal'], summary: 'Get own doctor profile', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Doctor profile', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/DoctorPortalProfile' } } } } } }, 401: { $ref: '#/components/responses/Unauthorized' }, 403: { $ref: '#/components/responses/Forbidden' }, 404: { $ref: '#/components/responses/NotFound' } } },
+            patch: { tags: ['Doctor Portal'], summary: 'Update own doctor profile', security: [{ bearerAuth: [] }], requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/DoctorPortalProfile' } } } }, responses: { 200: { description: 'Profile updated' }, 400: { $ref: '#/components/responses/BadRequest' }, 401: { $ref: '#/components/responses/Unauthorized' }, 403: { $ref: '#/components/responses/Forbidden' }, 404: { $ref: '#/components/responses/NotFound' } } }
         },
         '/v1/admin/login': {
             post: { tags: ['Admin'], summary: 'Admin login', description: 'Authenticates an administrator and returns a JWT access token. Endpoint: POST /v1/admin/login.', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['email', 'password'], properties: { email: { type: 'string', format: 'email' }, password: { type: 'string', format: 'password' } } } } } }, responses: { 200: { description: 'Admin authenticated', content: { 'application/json': { schema: { $ref: '#/components/schemas/PortalAuthResponse' } } } }, 401: { $ref: '#/components/responses/Unauthorized' } } }
@@ -357,17 +294,28 @@ const swaggerDefinition = {
     }
 };
 
+['register', 'login', 'profile'].forEach(endpoint => {
+    swaggerDefinition.paths[`/v1/doctor/${endpoint}`] = swaggerDefinition.paths[`/v1/doctor-portal/${endpoint}`];
+});
+swaggerDefinition.paths['/v1/doctor/status'] = {
+    get: {
+        summary: 'Get doctor status',
+        security: [{ bearerAuth: [] }],
+        responses: {
+            200: { description: 'Doctor status' },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            403: { $ref: '#/components/responses/Forbidden' },
+            404: { $ref: '#/components/responses/NotFound' }
+        }
+    }
+};
+
 Object.entries(swaggerDefinition.paths).forEach(([path, operations]) => {
     const tag = path.startsWith('/v1/admin') ? 'Admin' :
-        path.startsWith('/v1/doctor-portal') ? 'Doctor Portal' :
-            path.startsWith('/v1/doctor/') ? 'Doctor' :
-                path.startsWith('/v1/video-call') || path.startsWith('/v1/appointments/') && path.includes('/call') ? 'Video Call' :
-                    path.startsWith('/v1/auth') ? 'Auth' :
-                        path.startsWith('/v1/webrtc') ? 'WebRTC' :
-                            path.startsWith('/health') || path.startsWith('/v1/health') ? 'System' :
-                                'Patient';
+        (path.startsWith('/v1/doctor-portal') || path.startsWith('/v1/doctor/')) ? 'Doctor' :
+            'Patient';
     Object.values(operations).forEach(operation => {
-        if (operation && typeof operation === 'object' && !Array.isArray(operation) && !operation.tags) operation.tags = [tag];
+        if (operation && typeof operation === 'object' && !Array.isArray(operation)) operation.tags = [tag];
     });
 });
 

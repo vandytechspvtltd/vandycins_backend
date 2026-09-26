@@ -58,36 +58,11 @@ function accept(req, res) {
     }
 }
 
-function acceptSession(req, res) {
-    const callSessionId = String(req.params.callSessionId || '').trim();
-    if (!validation.isValidCallSessionId(callSessionId)) return sendError(res, 400, 'A valid callSessionId is required.');
-    try {
-        const session = videoCallService.acceptCallSession(req.user, callSessionId);
-        return res.json({ success: true, data: session });
-    } catch (error) {
-        return handleError(res, error);
-    }
-}
-
 function reject(req, res) {
     const id = appointmentId(req, res);
     if (!id) return;
     try {
         const session = videoCallService.rejectCall(req.user, id);
-        const io = req.app.get('io');
-        notify(io, session.patientId, 'call:rejected', session);
-        notify(io, session.doctorId, 'call:rejected', session);
-        return res.json({ success: true, data: session });
-    } catch (error) {
-        return handleError(res, error);
-    }
-}
-
-function rejectSession(req, res) {
-    const callSessionId = String(req.params.callSessionId || '').trim();
-    if (!validation.isValidCallSessionId(callSessionId)) return sendError(res, 400, 'A valid callSessionId is required.');
-    try {
-        const session = videoCallService.rejectCallSession(req.user, callSessionId);
         const io = req.app.get('io');
         notify(io, session.patientId, 'call:rejected', session);
         notify(io, session.doctorId, 'call:rejected', session);
@@ -111,20 +86,6 @@ function end(req, res) {
     }
 }
 
-function endSession(req, res) {
-    const callSessionId = String(req.params.callSessionId || '').trim();
-    if (!validation.isValidCallSessionId(callSessionId)) return sendError(res, 400, 'A valid callSessionId is required.');
-    try {
-        const session = videoCallService.endCallSession(req.user, callSessionId);
-        const io = req.app.get('io');
-        notify(io, session.patientId, 'call:ended', session);
-        notify(io, session.doctorId, 'call:ended', session);
-        return res.json({ success: true, data: session });
-    } catch (error) {
-        return handleError(res, error);
-    }
-}
-
 function get(req, res) {
     const id = appointmentId(req, res);
     if (!id) return;
@@ -135,4 +96,4 @@ function get(req, res) {
     }
 }
 
-module.exports = { iceServers, start, accept, acceptSession, reject, rejectSession, end, endSession, get };
+module.exports = { iceServers, start, accept, reject, end, get };
