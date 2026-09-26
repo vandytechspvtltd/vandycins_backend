@@ -49,6 +49,7 @@ test('Video Call REST and signaling enforce appointment membership and relay sig
     const savedConfig = {
         jwtAccessSecret: config.jwtAccessSecret,
         webrtcStunUrls: config.webrtcStunUrls,
+        webrtcTurnUrls: config.webrtcTurnUrls,
         webrtcTurnUrl: config.webrtcTurnUrl,
         webrtcTurnUsername: config.webrtcTurnUsername,
         webrtcTurnCredential: config.webrtcTurnCredential
@@ -68,6 +69,7 @@ test('Video Call REST and signaling enforce appointment membership and relay sig
     try {
         config.jwtAccessSecret = 'video-call-test-secret';
         config.webrtcStunUrls = ['stun:stun.unit.test:3478'];
+        config.webrtcTurnUrls = [];
         config.webrtcTurnUrl = 'turn:turn.unit.test:3478';
         config.webrtcTurnUsername = 'unit-user';
         config.webrtcTurnCredential = 'unit-credential';
@@ -186,7 +188,7 @@ test('Video Call REST and signaling enforce appointment membership and relay sig
         assert.equal(iceResponse.status, 200);
         assert.deepEqual((await iceResponse.json()).data.iceServers, [
             { urls: ['stun:stun.unit.test:3478'] },
-            { urls: 'turn:turn.unit.test:3478', username: 'unit-user', credential: 'unit-credential' }
+            { urls: ['turn:turn.unit.test:3478'], username: 'unit-user', credential: 'unit-credential' }
         ]);
 
         const endResponse = await apiRequest(`${baseUrl}/v1/appointments/apt_video_call_test/call/end`, testIds.patient, 'PATIENT', 'POST');

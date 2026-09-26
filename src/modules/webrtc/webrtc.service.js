@@ -5,15 +5,27 @@ const database = require('../../database/database');
 function iceServerConfiguration(userId, now = Math.floor(Date.now() / 1000)) {
     const iceServers = config.webrtcStunUrls.map(urls => ({ urls }));
     let expiresAt = null;
+    let turnConfigured = false;
+    const turnUrls = config.webrtcTurnUrls.length
+        ? config.webrtcTurnUrls
+        : (config.webrtcTurnUrl ? [config.webrtcTurnUrl] : []);
 
-    if (config.webrtcTurnUrls.length && config.turnSharedSecret) {
+    if (turnUrls.length && config.turnSharedSecret) {
         expiresAt = now + config.turnCredentialTtlSeconds;
         const username = `${expiresAt}:${userId}`;
         const credential = crypto.createHmac('sha1', config.turnSharedSecret).update(username).digest('base64');
-        iceServers.push({ urls: config.webrtcTurnUrls, username, credential });
+        iceServers.push({ urls: turnUrls, username, credential });
+        turnConfigured = true;
+    } else if (turnUrls.length && config.webrtcTurnUsername && config.webrtcTurnCredential) {
+        iceServers.push({
+            urls: turnUrls,
+            username: config.webrtcTurnUsername,
+            credential: config.webrtcTurnCredential
+        });
+        turnConfigured = true;
     }
 
-    return { iceServers, expiresAt, turnConfigured: expiresAt !== null };
+    return { iceServers, expiresAt, turnConfigured };
 }
 
 function appointmentForParticipant(user, appointmentId) {

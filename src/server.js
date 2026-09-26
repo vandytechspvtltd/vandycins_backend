@@ -14,6 +14,7 @@ const attachVideoCallSignaling = require('./modules/videoCall/videoCall.signalin
 
 const patientRoutes = require('./modules/patient/routes');
 const doctorRoutes = require('./modules/doctor/doctor.routes');
+const doctorPortalRoutes = require('./modules/doctor/doctor.portal.routes');
 const adminRoutes = require('./modules/admin/admin.routes');
 
 const app = express();
@@ -66,7 +67,7 @@ app.use('/v1', videoCallRoutes);
 app.use('/v1', patientRoutes);
 
 app.use('/v1/doctor', doctorRoutes);
-app.use('/v1/doctor-portal', doctorRoutes);
+app.use('/v1/doctor-portal', doctorPortalRoutes);
 app.use('/v1/admin', adminRoutes);
 app.use('/api/home', require('./modules/patient/home/home.routes'));
 
